@@ -33,6 +33,17 @@ MouseArea {
         return "";
     }
 
+    function nextWallpaper(t) {
+        if (root.pending !== "")
+            return;
+        root.pending = t.key;
+        root.slow = false;
+        slowTimer.restart();
+        giveUpTimer.restart();
+        applyProc.command = [root.script, t.key, "--next-wallpaper"];
+        applyProc.running = true;
+    }
+
     function apply(t) {
         if (root.pending !== "" || t.key === root.current)
             return;
@@ -256,6 +267,29 @@ MouseArea {
                                     visible: row.busy
                                     loading: row.busy
                                     implicitSize: 18
+                                }
+
+                                RippleButton {
+                                    visible: row.active && !row.busy && (row.modelData.wallpapers ?? 0) > 1
+                                    implicitHeight: 26
+                                    implicitWidth: wallRow.implicitWidth + 12
+                                    buttonRadius: Appearance.rounding.full
+                                    colBackground: Appearance.colors.colSecondaryContainerHover
+                                    onClicked: root.nextWallpaper(row.modelData)
+                                    contentItem: RowLayout {
+                                        id: wallRow
+                                        spacing: 4
+                                        MaterialSymbol {
+                                            text: "wallpaper"
+                                            iconSize: Appearance.font.pixelSize.normal
+                                            color: Appearance.colors.colOnSecondaryContainer
+                                        }
+                                        StyledText {
+                                            text: `${(root.applied.wallpaper_index ?? 0) + 1}/${row.modelData.wallpapers}`
+                                            font.pixelSize: Appearance.font.pixelSize.smaller
+                                            color: Appearance.colors.colOnSecondaryContainer
+                                        }
+                                    }
                                 }
 
                                 MaterialSymbol {

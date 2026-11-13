@@ -98,7 +98,7 @@ desktop = true
 packages = { arch = ["python"], ubuntu = ["python3"] }
 
 [module.bar-themes]
-description = "Bar: a palette button to switch the theme: Dark and White (from your wallpaper), Midnight, Forest, Arctic and Mint (each with its own wallpaper, a dark terminal and stars, leaves, snow or bubbles drifting over the wallpaper)"
+description = "Bar: a palette button to switch the theme: Dark and White (from your wallpaper), Midnight, Forest, Arctic and Mint (each with three wallpapers to cycle through, a dark terminal, and sparkling stars, tumbling leaves, snowflakes or glassy bubbles drifting over the wallpaper)"
 default = true
 desktop = true
 packages = { arch = ["python-pillow"], ubuntu = ["python3-pil"] }
@@ -222,6 +222,19 @@ sudo = true
 "home/.config/nvim/init.vim" = "nvim-vim"
 "home/.config/nvim/lazy-lock.json" = "nvim-vim"
 "home/.config/nvim/lua/myconfig.lua" = "nvim-vim"
+"home/.config/quickshell/ii/assets/decor/bubble-mint.svg" = "bar-themes"
+"home/.config/quickshell/ii/assets/decor/bubble-teal.svg" = "bar-themes"
+"home/.config/quickshell/ii/assets/decor/bubble-white.svg" = "bar-themes"
+"home/.config/quickshell/ii/assets/decor/leaf-amber.svg" = "bar-themes"
+"home/.config/quickshell/ii/assets/decor/leaf-gold.svg" = "bar-themes"
+"home/.config/quickshell/ii/assets/decor/leaf-green.svg" = "bar-themes"
+"home/.config/quickshell/ii/assets/decor/leaf-lime.svg" = "bar-themes"
+"home/.config/quickshell/ii/assets/decor/leaf-moss.svg" = "bar-themes"
+"home/.config/quickshell/ii/assets/decor/snowflake-1.svg" = "bar-themes"
+"home/.config/quickshell/ii/assets/decor/snowflake-2.svg" = "bar-themes"
+"home/.config/quickshell/ii/assets/decor/snowflake-3.svg" = "bar-themes"
+"home/.config/quickshell/ii/assets/decor/sparkle-gold.svg" = "bar-themes"
+"home/.config/quickshell/ii/assets/decor/sparkle-white.svg" = "bar-themes"
 "home/.config/quickshell/ii/assets/icons/claude-symbolic.svg" = "bar-agent-usage"
 "home/.config/quickshell/ii/assets/icons/codex-symbolic.svg" = "bar-agent-usage"
 "home/.config/quickshell/ii/assets/icons/pi-symbolic.svg" = "bar-agent-usage"
@@ -275,6 +288,7 @@ sudo = true
 "home/.config/quickshell/ii/services/ai/OpenAiApiStrategy.qml" = "ai-sidebar-extras"
 "home/.config/quickshell/ii/themes/arctic.json" = "bar-themes"
 "home/.config/quickshell/ii/themes/forest.json" = "bar-themes"
+"home/.config/quickshell/ii/themes/make-decor.py" = "bar-themes"
 "home/.config/quickshell/ii/themes/make-wallpapers.py" = "bar-themes"
 "home/.config/quickshell/ii/themes/midnight.json" = "bar-themes"
 "home/.config/quickshell/ii/themes/mint.json" = "bar-themes"

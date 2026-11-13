@@ -12,6 +12,7 @@ THEMES = HERE.parent.parent / "themes"
 STATE = Path(os.environ.get("XDG_STATE_HOME") or Path.home() / ".local" / "state") / "quickshell" / "user" / "generated"
 STATE_FILE = STATE / "theme.json"
 WALL_FILE = STATE / "theme-wallpaper.json"
+CHOICE_FILE = STATE / "theme-choices.json"
 SHELL_CONFIG = Path(os.environ.get("XDG_CONFIG_HOME") or Path.home() / ".config") / "illogical-impulse" / "config.json"
 WALLPAPERS = Path(os.environ.get("XDG_DATA_HOME") or Path.home() / ".local" / "share") / "quickshell-themes" / "wallpapers"
 HEX = re.compile(r"^#[0-9A-Fa-f]{6}$")
@@ -47,7 +48,8 @@ def themes():
             continue
         found.append({"key": path.stem, "name": t.get("name", path.stem), "icon": t.get("icon", "palette"),
                       "mode": t.get("mode", "dark"), "swatch": t.get("swatch", []), "order": t.get("order", 100),
-                      "background": t.get("colors", {}).get("background", "")})
+                      "background": t.get("colors", {}).get("background", ""),
+                      "wallpapers": len(wallpaper_names(t))})
     found.sort(key=lambda t: (t["order"], t["name"]))
     return BUILTIN + found
 
@@ -70,6 +72,18 @@ def wait_applycolor(timeout=10.0):
 def set_wallpaper(path, mode):
     subprocess.run([str(HERE / "switchwall.sh"), "--image", str(path), "--mode", mode], check=True,
                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+
+def wallpaper_names(t):
+    names = t.get("wallpapers") or ([t["wallpaper"]] if t.get("wallpaper") else [])
+    return [n for n in names if isinstance(n, str)]
+
+
+def load_choices():
+    try:
+        return json.loads(CHOICE_FILE.read_text())
+    except (OSError, ValueError):
+        return {}
 
 
 def theme_wallpaper(name):
@@ -157,7 +171,7 @@ def kitty_overrides(values):
                            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 
-def apply(key):
+def apply(key, wallpaper_step=None):
     builtin = {b["key"]: b for b in BUILTIN}
     if key in builtin:
         mode = builtin[key]["mode"]
@@ -169,14 +183,26 @@ def apply(key):
         return
     t = load(key)
     mode = t.get("mode", "dark")
-    wallpaper = theme_wallpaper(t.get("wallpaper"))
+    names = wallpaper_names(t)
+    choices = load_choices()
+    index = int(choices.get(key, 0)) if names else 0
+    if names and wallpaper_step == "next":
+        index += 1
+    elif names and isinstance(wallpaper_step, int):
+        index = wallpaper_step
+    index = index % len(names) if names else 0
+    if names:
+        choices[key] = index
+        write_atomic(CHOICE_FILE, json.dumps(choices) + "\n")
+    wallpaper = theme_wallpaper(names[index]) if names else None
     if wallpaper:
         remember_wallpaper()
         if Path(current_wallpaper() or "/").resolve() != wallpaper.resolve():
             set_wallpaper(wallpaper, mode)
     switchwall("--mode", mode, "--type", "scheme-tonal-spot", "--color", t["seed"])
     override(t)
-    write_atomic(STATE_FILE, json.dumps({"theme": key, "decor": t.get("decor", ""),
+    write_atomic(STATE_FILE, json.dumps({"theme": key, "decor": t.get("decor", ""), "wallpaper_index": index,
+                                         "wallpapers": len(names),
                                          "background": t.get("colors", {}).get("background", "").lower()}) + "\n")
 
 
@@ -187,7 +213,13 @@ def main():
     if len(sys.argv) == 2:
         apply(sys.argv[1])
         return 0
-    print("usage: apply-theme.py --list | THEME", file=sys.stderr)
+    if len(sys.argv) == 3 and sys.argv[2] == "--next-wallpaper":
+        apply(sys.argv[1], "next")
+        return 0
+    if len(sys.argv) == 4 and sys.argv[2] == "--wallpaper" and sys.argv[3].isdigit():
+        apply(sys.argv[1], int(sys.argv[3]))
+        return 0
+    print("usage: apply-theme.py --list | THEME [--next-wallpaper | --wallpaper N]", file=sys.stderr)
     return 2
 
 

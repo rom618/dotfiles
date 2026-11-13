@@ -49,7 +49,7 @@ Scope {
                 anchors.fill: parent
 
                 Repeater {
-                    model: root.decor === "stars" ? 60 : (root.decor === "leaves" ? 18 : 30)
+                    model: root.decor === "stars" ? 70 : (root.decor === "leaves" ? 22 : (root.decor === "snow" ? 45 : 26))
                     delegate: Loader {
                         required property int index
                         sourceComponent: root.decor === "stars" ? star : drifter
@@ -71,74 +71,61 @@ Scope {
                     property real sway: 40
                     property real swayCycles: 1
                     property real spin: 0
-                    property real size: 6
+                    property real depth: 1
+                    property real size: 12
                     property real duration: 12000
-                    property color tint: "white"
+                    property string asset: ""
                     readonly property bool rising: root.decor === "bubbles"
+
+                    function pick(list) {
+                        return list[Math.floor(Math.random() * list.length)];
+                    }
 
                     function reset() {
                         startX = Math.random() * field.width;
-                        if (root.decor === "snow") {
-                            size = 3 + Math.random() * 6;
-                            sway = 20 + Math.random() * 50;
-                            duration = 10000 + Math.random() * 10000;
-                            tint = "white";
-                        } else if (root.decor === "leaves") {
-                            size = 16 + Math.random() * 12;
-                            sway = 60 + Math.random() * 90;
-                            duration = 13000 + Math.random() * 11000;
-                            spin = (Math.random() < 0.5 ? -1 : 1) * (180 + Math.random() * 360);
-                            const greens = ["#52B788", "#74C69D", "#95D5B2", "#E9C46A", "#40916C"];
-                            tint = greens[Math.floor(Math.random() * greens.length)];
-                        } else {
-                            size = 8 + Math.random() * 20;
-                            sway = 15 + Math.random() * 35;
-                            duration = 12000 + Math.random() * 14000;
-                            const mints = ["#FFFFFF", "#C7F9CC", "#80ED99", "#38A3A5"];
-                            tint = mints[Math.floor(Math.random() * mints.length)];
-                        }
+                        depth = 0.45 + Math.random() * 0.55;
                         swayCycles = 0.6 + Math.random() * 1.4;
+                        if (root.decor === "snow") {
+                            size = (10 + Math.random() * 18) * depth;
+                            sway = (20 + Math.random() * 45) * depth;
+                            duration = (16000 + Math.random() * 10000) / depth;
+                            spin = (Math.random() < 0.5 ? -1 : 1) * (60 + Math.random() * 180);
+                            asset = pick(["snowflake-1", "snowflake-2", "snowflake-3"]);
+                        } else if (root.decor === "leaves") {
+                            size = (20 + Math.random() * 18) * depth;
+                            sway = (70 + Math.random() * 110) * depth;
+                            duration = (15000 + Math.random() * 12000) / depth;
+                            spin = (Math.random() < 0.5 ? -1 : 1) * (240 + Math.random() * 420);
+                            asset = pick(["leaf-green", "leaf-lime", "leaf-gold", "leaf-amber", "leaf-moss"]);
+                        } else {
+                            size = (14 + Math.random() * 30) * depth;
+                            sway = (12 + Math.random() * 30) * depth;
+                            duration = (14000 + Math.random() * 14000) / depth;
+                            spin = 0;
+                            asset = pick(["bubble-white", "bubble-mint", "bubble-teal"]);
+                        }
                     }
 
                     width: size
                     height: size
                     x: startX + sway * Math.sin(progress * Math.PI * 2 * swayCycles)
-                    y: rising ? field.height + 30 - progress * (field.height + 60) : -30 + progress * (field.height + 60)
+                    y: rising ? field.height + 40 - progress * (field.height + 80) : -40 + progress * (field.height + 80)
                     rotation: spin * progress
-                    opacity: rising ? 0.75 * (1 - progress * 0.8) : (root.decor === "snow" ? 0.85 : 0.9)
-
-                    Rectangle {
-                        visible: root.decor === "snow"
-                        anchors.fill: parent
-                        radius: width / 2
-                        color: p.tint
+                    opacity: (rising ? 0.95 * (1 - progress * 0.7) : 0.95) * (0.45 + 0.55 * depth)
+                    transform: Scale {
+                        origin.x: p.width / 2
+                        origin.y: p.height / 2
+                        xScale: root.decor === "leaves" ? Math.cos(p.progress * Math.PI * 2 * p.swayCycles * 2) : 1
+                        yScale: root.decor === "bubbles" ? 1 + 0.06 * Math.sin(p.progress * Math.PI * 14) : 1
                     }
 
-                    Rectangle {
-                        visible: root.decor === "bubbles"
+                    Image {
                         anchors.fill: parent
-                        radius: width / 2
-                        color: Qt.rgba(p.tint.r, p.tint.g, p.tint.b, 0.18)
-                        border.width: 1.5
-                        border.color: p.tint
-                        Rectangle {
-                            width: parent.width * 0.25
-                            height: width
-                            radius: width / 2
-                            x: parent.width * 0.22
-                            y: parent.height * 0.2
-                            color: "#FFFFFF"
-                            opacity: 0.8
-                        }
-                    }
-
-                    MaterialSymbol {
-                        visible: root.decor === "leaves"
-                        anchors.centerIn: parent
-                        text: "eco"
-                        fill: 1
-                        iconSize: p.size
-                        color: p.tint
+                        source: p.asset ? Quickshell.shellPath(`assets/decor/${p.asset}.svg`) : ""
+                        sourceSize.width: 96
+                        sourceSize.height: 96
+                        smooth: true
+                        mipmap: true
                     }
 
                     NumberAnimation {
@@ -168,34 +155,29 @@ Scope {
                 id: star
                 Item {
                     id: s
-                    property real size: 1.5 + Math.random() * 2.5
+                    readonly property bool sparkle: Math.random() < 0.22
+                    property real size: sparkle ? 12 + Math.random() * 14 : 1.5 + Math.random() * 2.5
                     x: Math.random() * field.width
                     y: Math.pow(Math.random(), 1.4) * field.height * 0.75
-                    width: size * 4
-                    height: size * 4
+                    width: s.sparkle ? s.size : s.size * 4
+                    height: width
 
                     Rectangle {
+                        visible: !s.sparkle
                         anchors.centerIn: parent
                         width: s.size
                         height: s.size
                         radius: width / 2
                         color: Math.random() < 0.25 ? "#F5D687" : "#E6E9FF"
                     }
-                    Rectangle {
-                        visible: s.size > 3
-                        anchors.centerIn: parent
-                        width: s.size * 4
-                        height: 1
-                        color: "#E6E9FF"
-                        opacity: 0.6
-                    }
-                    Rectangle {
-                        visible: s.size > 3
-                        anchors.centerIn: parent
-                        width: 1
-                        height: s.size * 4
-                        color: "#E6E9FF"
-                        opacity: 0.6
+                    Image {
+                        visible: s.sparkle
+                        anchors.fill: parent
+                        source: s.sparkle ? Quickshell.shellPath(Math.random() < 0.35 ? "assets/decor/sparkle-gold.svg" : "assets/decor/sparkle-white.svg") : ""
+                        sourceSize.width: 64
+                        sourceSize.height: 64
+                        smooth: true
+                        mipmap: true
                     }
 
                     SequentialAnimation on opacity {
@@ -203,6 +185,12 @@ Scope {
                         PauseAnimation { duration: Math.random() * 4000 }
                         NumberAnimation { from: 0.15; to: 1; duration: 1200 + Math.random() * 1800; easing.type: Easing.InOutSine }
                         NumberAnimation { from: 1; to: 0.15; duration: 1200 + Math.random() * 1800; easing.type: Easing.InOutSine }
+                    }
+                    SequentialAnimation on scale {
+                        running: s.sparkle
+                        loops: Animation.Infinite
+                        NumberAnimation { from: 0.7; to: 1.15; duration: 1800 + Math.random() * 1500; easing.type: Easing.InOutSine }
+                        NumberAnimation { from: 1.15; to: 0.7; duration: 1800 + Math.random() * 1500; easing.type: Easing.InOutSine }
                     }
                 }
             }
