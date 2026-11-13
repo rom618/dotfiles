@@ -68,7 +68,7 @@ desktop = false
 packages = { arch = ["fish", "eza"], ubuntu = ["fish", "eza"] }
 
 [module.kitty]
-description = "kitty: translucent, Ctrl+C copies or interrupts, Ctrl+Shift+V pastes, live theme recolor"
+description = "kitty: translucent, Ctrl+C copies or interrupts, Ctrl+Shift+V pastes, live theme recolor, Super+Shift+T reopens the last closed window"
 default = true
 desktop = false
 packages = { arch = ["kitty"], ubuntu = ["kitty"] }

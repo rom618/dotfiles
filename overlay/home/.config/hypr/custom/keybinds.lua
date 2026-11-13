@@ -17,7 +17,6 @@ hl.unbind("SUPER + ALT + 8")
 hl.unbind("SUPER + ALT + 9")
 hl.unbind("SUPER + ALT + 0")
 hl.unbind("Print")
-hl.unbind("SUPER + SHIFT + T")
 
 -- share:end
 -- share:begin lockscreen
@@ -46,6 +45,10 @@ hl.bind("SUPER + ALT + Right", hl.dsp.exec_cmd(mediaNextCommand), { description 
 hl.bind("SUPER + ALT + Left", hl.dsp.exec_cmd("playerctl previous"), { description = "Media: Previous track" })
 hl.bind("Print", hl.dsp.exec_cmd("grim -g \"$(slurp)\" - | wl-copy"),
     { description = "Utilities: Screenshot region to clipboard" })
+
+-- share:end
+-- share:begin kitty
+hl.unbind("SUPER + SHIFT + T")
 hl.bind("SUPER + SHIFT + T", hl.dsp.exec_cmd(os.getenv("HOME") .. "/.config/hypr/custom/scripts/kitty-reopen.sh"),
     { description = "App: Reopen the last closed terminal" })
 hl.bind("SUPER + ALT + T", hl.dsp.global("quickshell:screenTranslate"),
