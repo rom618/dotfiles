@@ -7,7 +7,23 @@ import Quickshell.Wayland
 
 Scope {
     id: root
-    property string decor: ""
+    property string themeDecor: ""
+    property bool particlesOn: true
+    readonly property string decor: particlesOn ? themeDecor : ""
+
+    FileView {
+        path: `${Directories.state}/user/generated/theme-prefs.json`
+        printErrors: false
+        watchChanges: true
+        onFileChanged: reload()
+        onLoaded: {
+            try {
+                root.particlesOn = JSON.parse(text()).particles !== false;
+            } catch (e) {
+                root.particlesOn = true;
+            }
+        }
+    }
 
     FileView {
         path: `${Directories.state}/user/generated/theme.json`
@@ -16,12 +32,12 @@ Scope {
         onFileChanged: reload()
         onLoaded: {
             try {
-                root.decor = JSON.parse(text()).decor ?? "";
+                root.themeDecor = JSON.parse(text()).decor ?? "";
             } catch (e) {
-                root.decor = "";
+                root.themeDecor = "";
             }
         }
-        onLoadFailed: root.decor = ""
+        onLoadFailed: root.themeDecor = ""
     }
 
     Variants {
@@ -49,7 +65,7 @@ Scope {
                 anchors.fill: parent
 
                 Repeater {
-                    model: root.decor === "stars" ? 70 : (root.decor === "leaves" ? 22 : (root.decor === "snow" ? 45 : 26))
+                    model: root.decor === "stars" ? 70 : (root.decor === "leaves" ? 22 : (root.decor === "snow" ? 45 : (root.decor === "sand" ? 90 : 26)))
                     delegate: Loader {
                         required property int index
                         sourceComponent: root.decor === "stars" ? star : drifter
@@ -59,6 +75,11 @@ Scope {
                 Loader {
                     active: root.decor === "stars"
                     sourceComponent: shootingStar
+                }
+
+                Loader {
+                    active: root.decor === "sand"
+                    sourceComponent: tumbleweed
                 }
             }
 
@@ -76,6 +97,9 @@ Scope {
                     property real duration: 12000
                     property string asset: ""
                     readonly property bool rising: root.decor === "bubbles"
+                    readonly property bool windy: root.decor === "sand"
+                    property real startY: 0
+                    property color grain: "#D9A066"
 
                     function pick(list) {
                         return list[Math.floor(Math.random() * list.length)];
@@ -97,6 +121,14 @@ Scope {
                             duration = (15000 + Math.random() * 12000) / depth;
                             spin = (Math.random() < 0.5 ? -1 : 1) * (240 + Math.random() * 420);
                             asset = pick(["leaf-green", "leaf-lime", "leaf-gold", "leaf-amber", "leaf-moss"]);
+                        } else if (root.decor === "sand") {
+                            startY = field.height * (0.35 + Math.pow(Math.random(), 0.7) * 0.65);
+                            size = (2 + Math.random() * 3.5) * depth;
+                            sway = (10 + Math.random() * 40) * depth;
+                            duration = (5000 + Math.random() * 5000) / depth;
+                            spin = 0;
+                            asset = "";
+                            grain = pick(["#E0B07A", "#D9A066", "#C9824E", "#F2CE96", "#B5713F"]);
                         } else {
                             size = (14 + Math.random() * 30) * depth;
                             sway = (12 + Math.random() * 30) * depth;
@@ -108,8 +140,9 @@ Scope {
 
                     width: size
                     height: size
-                    x: startX + sway * Math.sin(progress * Math.PI * 2 * swayCycles)
-                    y: rising ? field.height + 40 - progress * (field.height + 80) : -40 + progress * (field.height + 80)
+                    x: windy ? -40 + progress * (field.width + 80) : startX + sway * Math.sin(progress * Math.PI * 2 * swayCycles)
+                    y: windy ? startY + sway * Math.sin(progress * Math.PI * 2 * swayCycles) - progress * 60 * depth
+                       : (rising ? field.height + 40 - progress * (field.height + 80) : -40 + progress * (field.height + 80))
                     rotation: spin * progress
                     opacity: (rising ? 0.95 * (1 - progress * 0.7) : 0.95) * (0.45 + 0.55 * depth)
                     transform: Scale {
@@ -119,7 +152,15 @@ Scope {
                         yScale: root.decor === "bubbles" ? 1 + 0.06 * Math.sin(p.progress * Math.PI * 14) : 1
                     }
 
+                    Rectangle {
+                        visible: p.windy
+                        anchors.fill: parent
+                        radius: width / 2
+                        color: p.grain
+                    }
+
                     Image {
+                        visible: !p.windy
                         anchors.fill: parent
                         source: p.asset ? Quickshell.shellPath(`assets/decor/${p.asset}.svg`) : ""
                         sourceSize.width: 96
@@ -191,6 +232,38 @@ Scope {
                         loops: Animation.Infinite
                         NumberAnimation { from: 0.7; to: 1.15; duration: 1800 + Math.random() * 1500; easing.type: Easing.InOutSine }
                         NumberAnimation { from: 1.15; to: 0.7; duration: 1800 + Math.random() * 1500; easing.type: Easing.InOutSine }
+                    }
+                }
+            }
+
+            Component {
+                id: tumbleweed
+                Item {
+                    id: tw
+                    property real progress: 0
+                    property real size: 70
+                    width: size
+                    height: size
+                    x: -size + progress * (field.width + size * 2)
+                    y: field.height - size - 30 - Math.abs(Math.sin(progress * Math.PI * 9)) * 70 * (1 - progress * 0.4)
+                    rotation: progress * 360 * 6
+                    opacity: progress > 0 && progress < 1 ? 0.9 : 0
+
+                    Image {
+                        anchors.fill: parent
+                        source: Quickshell.shellPath("assets/decor/tumbleweed.svg")
+                        sourceSize.width: 128
+                        sourceSize.height: 128
+                        smooth: true
+                        mipmap: true
+                    }
+
+                    SequentialAnimation {
+                        running: true
+                        loops: Animation.Infinite
+                        PauseAnimation { duration: 6000 + Math.random() * 10000 }
+                        ScriptAction { script: tw.size = 50 + Math.random() * 40 }
+                        NumberAnimation { target: tw; property: "progress"; from: 0; to: 1; duration: 9000; easing.type: Easing.Linear }
                     }
                 }
             }

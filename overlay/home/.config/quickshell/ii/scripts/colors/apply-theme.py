@@ -74,9 +74,21 @@ def set_wallpaper(path, mode):
                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 
+_AVAILABLE = None
+
+
+def available_wallpapers():
+    global _AVAILABLE
+    if _AVAILABLE is None:
+        r = subprocess.run([sys.executable, str(THEMES / "make-wallpapers.py"), "--list"], capture_output=True, text=True)
+        _AVAILABLE = set(r.stdout.split()) if r.returncode == 0 else set()
+    return _AVAILABLE
+
+
 def wallpaper_names(t):
     names = t.get("wallpapers") or ([t["wallpaper"]] if t.get("wallpaper") else [])
-    return [n for n in names if isinstance(n, str)]
+    known = available_wallpapers()
+    return [n for n in names if isinstance(n, str) and n in known]
 
 
 def load_choices():
@@ -188,6 +200,8 @@ def apply(key, wallpaper_step=None):
     index = int(choices.get(key, 0)) if names else 0
     if names and wallpaper_step == "next":
         index += 1
+    elif names and wallpaper_step == "prev":
+        index -= 1
     elif names and isinstance(wallpaper_step, int):
         index = wallpaper_step
     index = index % len(names) if names else 0
@@ -213,13 +227,13 @@ def main():
     if len(sys.argv) == 2:
         apply(sys.argv[1])
         return 0
-    if len(sys.argv) == 3 and sys.argv[2] == "--next-wallpaper":
-        apply(sys.argv[1], "next")
+    if len(sys.argv) == 3 and sys.argv[2] in ("--next-wallpaper", "--prev-wallpaper"):
+        apply(sys.argv[1], "next" if sys.argv[2] == "--next-wallpaper" else "prev")
         return 0
     if len(sys.argv) == 4 and sys.argv[2] == "--wallpaper" and sys.argv[3].isdigit():
         apply(sys.argv[1], int(sys.argv[3]))
         return 0
-    print("usage: apply-theme.py --list | THEME [--next-wallpaper | --wallpaper N]", file=sys.stderr)
+    print("usage: apply-theme.py --list | THEME [--next-wallpaper | --prev-wallpaper | --wallpaper N]", file=sys.stderr)
     return 2
 
 

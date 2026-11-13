@@ -98,7 +98,7 @@ desktop = true
 packages = { arch = ["python"], ubuntu = ["python3"] }
 
 [module.bar-themes]
-description = "Bar: a palette button to switch the theme: Dark and White (from your wallpaper), Midnight, Forest, Arctic and Mint (each with three wallpapers to cycle through, a dark terminal, and sparkling stars, tumbling leaves, snowflakes or glassy bubbles drifting over the wallpaper)"
+description = "Bar: a palette button to switch the theme: Dark and White (from your wallpaper), Midnight, Forest, Arctic, Mint and Desert (each with three wallpapers to switch from the menu, a dark terminal, and stars, leaves, snowflakes, bubbles or blowing sand over the wallpaper, which the menu can turn off)"
 default = true
 desktop = true
 packages = { arch = ["python-pillow"], ubuntu = ["python3-pil"] }
@@ -235,6 +235,7 @@ sudo = true
 "home/.config/quickshell/ii/assets/decor/snowflake-3.svg" = "bar-themes"
 "home/.config/quickshell/ii/assets/decor/sparkle-gold.svg" = "bar-themes"
 "home/.config/quickshell/ii/assets/decor/sparkle-white.svg" = "bar-themes"
+"home/.config/quickshell/ii/assets/decor/tumbleweed.svg" = "bar-themes"
 "home/.config/quickshell/ii/assets/icons/claude-symbolic.svg" = "bar-agent-usage"
 "home/.config/quickshell/ii/assets/icons/codex-symbolic.svg" = "bar-agent-usage"
 "home/.config/quickshell/ii/assets/icons/pi-symbolic.svg" = "bar-agent-usage"
@@ -287,6 +288,7 @@ sudo = true
 "home/.config/quickshell/ii/services/ai/GeminiApiStrategy.qml" = "ai-sidebar-extras"
 "home/.config/quickshell/ii/services/ai/OpenAiApiStrategy.qml" = "ai-sidebar-extras"
 "home/.config/quickshell/ii/themes/arctic.json" = "bar-themes"
+"home/.config/quickshell/ii/themes/desert.json" = "bar-themes"
 "home/.config/quickshell/ii/themes/forest.json" = "bar-themes"
 "home/.config/quickshell/ii/themes/make-decor.py" = "bar-themes"
 "home/.config/quickshell/ii/themes/make-wallpapers.py" = "bar-themes"

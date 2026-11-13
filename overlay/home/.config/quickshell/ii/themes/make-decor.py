@@ -100,6 +100,26 @@ def sparkle(color, glow):
             f'</svg>\n')
 
 
+def tumbleweed():
+    import random
+    rng = random.Random(5)
+    paths = []
+    for _ in range(46):
+        a0 = rng.random() * math.tau
+        r0 = 8 + rng.random() * 34
+        r1 = 8 + rng.random() * 34
+        a1 = a0 + (rng.random() - 0.5) * 2.4
+        x0, y0 = 50 + r0 * math.cos(a0), 50 + r0 * math.sin(a0)
+        x1, y1 = 50 + r1 * math.cos(a1), 50 + r1 * math.sin(a1)
+        cx, cy = 50 + (rng.random() - 0.5) * 60, 50 + (rng.random() - 0.5) * 60
+        paths.append(f"M{f(x0)} {f(y0)}Q{f(cx)} {f(cy)} {f(x1)} {f(y1)}")
+    return (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">'
+            f'<circle cx="50" cy="50" r="40" fill="#8A6A3A" fill-opacity="0.12"/>'
+            f'<path d="{"".join(paths)}" fill="none" stroke="#6E5230" stroke-width="2.2" stroke-linecap="round"/>'
+            f'<path d="{"".join(paths[::3])}" fill="none" stroke="#B08A52" stroke-width="1.4" stroke-linecap="round"/>'
+            f'</svg>\n')
+
+
 ASSETS = {
     "snowflake-1.svg": snowflake([], 40, [12, 9, 6], [14, 24, 32], 7),
     "snowflake-2.svg": snowflake([20, 30], 42, [16], [12], 9),
@@ -114,6 +134,7 @@ ASSETS = {
     "bubble-teal.svg": bubble("#38A3A5", "#80ED99"),
     "sparkle-white.svg": sparkle("#F2F4FF", "#A6B1FF"),
     "sparkle-gold.svg": sparkle("#FBEBC2", "#F5D687"),
+    "tumbleweed.svg": tumbleweed(),
 }
 
 if __name__ == "__main__":

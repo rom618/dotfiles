@@ -33,14 +33,40 @@ MouseArea {
         return "";
     }
 
-    function nextWallpaper(t) {
-        if (root.pending !== "")
+    property var prefs: ({})
+    readonly property bool particlesOn: root.prefs.particles !== false
+    readonly property bool hasDecor: !!root.applied.decor && root.applied.theme === root.current
+
+    function setParticles(on) {
+        prefsFile.setText(JSON.stringify({ particles: on }) + "\n");
+        root.prefs = { particles: on };
+    }
+
+    FileView {
+        id: prefsFile
+        path: `${Directories.state}/user/generated/theme-prefs.json`
+        printErrors: false
+        watchChanges: true
+        onFileChanged: reload()
+        onLoaded: {
+            try {
+                root.prefs = JSON.parse(text());
+            } catch (e) {
+                root.prefs = {};
+            }
+        }
+    }
+
+    readonly property int wallpaperCount: root.applied.theme && root.applied.theme === root.current ? (root.applied.wallpapers ?? 0) : 0
+
+    function stepWallpaper(direction) {
+        if (root.pending !== "" || root.wallpaperCount < 2)
             return;
-        root.pending = t.key;
+        root.pending = "wallpaper";
         root.slow = false;
         slowTimer.restart();
         giveUpTimer.restart();
-        applyProc.command = [root.script, t.key, "--next-wallpaper"];
+        applyProc.command = [root.script, root.current, direction > 0 ? "--next-wallpaper" : "--prev-wallpaper"];
         applyProc.running = true;
     }
 
@@ -269,29 +295,6 @@ MouseArea {
                                     implicitSize: 18
                                 }
 
-                                RippleButton {
-                                    visible: row.active && !row.busy && (row.modelData.wallpapers ?? 0) > 1
-                                    implicitHeight: 26
-                                    implicitWidth: wallRow.implicitWidth + 12
-                                    buttonRadius: Appearance.rounding.full
-                                    colBackground: Appearance.colors.colSecondaryContainerHover
-                                    onClicked: root.nextWallpaper(row.modelData)
-                                    contentItem: RowLayout {
-                                        id: wallRow
-                                        spacing: 4
-                                        MaterialSymbol {
-                                            text: "wallpaper"
-                                            iconSize: Appearance.font.pixelSize.normal
-                                            color: Appearance.colors.colOnSecondaryContainer
-                                        }
-                                        StyledText {
-                                            text: `${(root.applied.wallpaper_index ?? 0) + 1}/${row.modelData.wallpapers}`
-                                            font.pixelSize: Appearance.font.pixelSize.smaller
-                                            color: Appearance.colors.colOnSecondaryContainer
-                                        }
-                                    }
-                                }
-
                                 MaterialSymbol {
                                     visible: row.active && !row.busy
                                     text: "check"
@@ -299,6 +302,104 @@ MouseArea {
                                     color: Appearance.colors.colOnSecondaryContainer
                                 }
                             }
+                        }
+                    }
+
+                    Rectangle {
+                        visible: root.wallpaperCount > 1 || root.hasDecor
+                        Layout.fillWidth: true
+                        Layout.topMargin: 4
+                        Layout.bottomMargin: 2
+                        implicitHeight: 1
+                        color: Appearance.colors.colOutlineVariant
+                    }
+
+                    RowLayout {
+                        visible: root.wallpaperCount > 1
+                        Layout.fillWidth: true
+                        Layout.leftMargin: 10
+                        Layout.rightMargin: 2
+                        spacing: 4
+
+                        MaterialSymbol {
+                            text: "wallpaper"
+                            iconSize: Appearance.font.pixelSize.larger
+                            color: Appearance.colors.colOnLayer1
+                        }
+                        StyledText {
+                            Layout.fillWidth: true
+                            Layout.leftMargin: 6
+                            text: "Wallpaper"
+                            font.pixelSize: Appearance.font.pixelSize.small
+                            color: Appearance.colors.colOnLayer1
+                        }
+                        RippleButton {
+                            implicitWidth: 30
+                            implicitHeight: 30
+                            buttonRadius: Appearance.rounding.full
+                            enabled: root.pending === ""
+                            onClicked: root.stepWallpaper(-1)
+                            contentItem: MaterialSymbol {
+                                horizontalAlignment: Text.AlignHCenter
+                                text: "chevron_left"
+                                iconSize: Appearance.font.pixelSize.larger
+                                color: Appearance.colors.colOnLayer1
+                            }
+                        }
+                        Item {
+                            implicitWidth: 30
+                            implicitHeight: 30
+                            StyledText {
+                                anchors.centerIn: parent
+                                visible: root.pending !== "wallpaper"
+                                text: `${(root.applied.wallpaper_index ?? 0) + 1}/${root.wallpaperCount}`
+                                font.pixelSize: Appearance.font.pixelSize.small
+                                color: Appearance.colors.colOnLayer1
+                            }
+                            MaterialLoadingIndicator {
+                                anchors.centerIn: parent
+                                visible: root.pending === "wallpaper"
+                                loading: visible
+                                implicitSize: 18
+                            }
+                        }
+                        RippleButton {
+                            implicitWidth: 30
+                            implicitHeight: 30
+                            buttonRadius: Appearance.rounding.full
+                            enabled: root.pending === ""
+                            onClicked: root.stepWallpaper(1)
+                            contentItem: MaterialSymbol {
+                                horizontalAlignment: Text.AlignHCenter
+                                text: "chevron_right"
+                                iconSize: Appearance.font.pixelSize.larger
+                                color: Appearance.colors.colOnLayer1
+                            }
+                        }
+                    }
+
+                    RowLayout {
+                        visible: root.hasDecor
+                        Layout.fillWidth: true
+                        Layout.leftMargin: 10
+                        Layout.rightMargin: 6
+                        spacing: 4
+
+                        MaterialSymbol {
+                            text: "auto_awesome"
+                            iconSize: Appearance.font.pixelSize.larger
+                            color: Appearance.colors.colOnLayer1
+                        }
+                        StyledText {
+                            Layout.fillWidth: true
+                            Layout.leftMargin: 6
+                            text: "Particles"
+                            font.pixelSize: Appearance.font.pixelSize.small
+                            color: Appearance.colors.colOnLayer1
+                        }
+                        StyledSwitch {
+                            checked: root.particlesOn
+                            onToggled: root.setParticles(checked)
                         }
                     }
                 }

@@ -508,12 +508,145 @@ def mint_lowpoly():
     img = glow(img, (W * 0.15, H * 0.1), 600, "#FFFFFF", 0.3)
     return grain(img, 20, rng)
 
+def dune(img, rng, base, amp, color, shadow, crest, blur=0):
+    ph = rng.random() * 6.28
+    f1, f2 = 1.2 + rng.random() * 1.2, 3.1 + rng.random() * 1.5
+    pts = [(x, base - amp * (0.6 * math.sin(x / W * math.pi * f1 + ph) + 0.4 * math.sin(x / W * math.pi * f2 + ph * 1.7)))
+           for x in range(-40, W + 41, 16)]
+    img = fill_below(img, pts, color, blur)
+    sh = Image.new("L", img.size, 0)
+    sd = ImageDraw.Draw(sh)
+    for i in range(1, len(pts)):
+        (x0, y0), (x1, y1) = pts[i - 1], pts[i]
+        if y1 > y0:
+            sd.polygon([(x0, y0), (x1, y1), (x1 + 60, y1 + amp * 1.2), (x0 + 60, y0 + amp * 1.2)], fill=110)
+    mask = Image.new("L", img.size, 0)
+    ImageDraw.Draw(mask).polygon(pts + [(W + 40, H), (-40, H)], fill=255)
+    sh = ImageChops.multiply(sh.filter(ImageFilter.GaussianBlur(24)), mask)
+    img = Image.composite(Image.new("RGB", img.size, hexrgb(shadow)), img, sh)
+    ImageDraw.Draw(img).line(pts, fill=hexrgb(crest), width=2)
+    return img
+
+
+def saguaro(d, x, base, h, color):
+    w = h * 0.12
+    d.rounded_rectangle([x - w / 2, base - h, x + w / 2, base], radius=w / 2, fill=color)
+    for side, at, arm in ((-1, 0.55, 0.32), (1, 0.4, 0.26)):
+        ax = x + side * w / 2
+        ay = base - h * at
+        d.rounded_rectangle([min(ax, ax + side * h * 0.16), ay - w * 0.4, max(ax, ax + side * h * 0.16), ay + w * 0.4],
+                            radius=w * 0.4, fill=color)
+        ex = ax + side * h * 0.16
+        d.rounded_rectangle([ex - w * 0.4, ay - h * arm, ex + w * 0.4, ay + w * 0.4], radius=w * 0.4, fill=color)
+
+
+def desert():
+    rng = random.Random(909)
+    img = vgradient([(0, "#3E6E7A"), (0.35, "#C98B6B"), (0.55, "#F2C46B"), (0.62, "#F5DDB0"), (1, "#C9693F")])
+    img = glow(img, (W * 0.7, H * 0.56), 260, "#FFF4D6", 0.8)
+    for base, amp, color, shadow, crest, blur in [(H * 0.62, 40, "#E0B07A", "#C48A5A", "#F2CE96", 3),
+                                                  (H * 0.72, 70, "#D9A066", "#B5713F", "#F2C690", 1),
+                                                  (H * 0.84, 90, "#C9824E", "#9E5A2E", "#E8B078", 0),
+                                                  (H * 0.97, 110, "#B5693A", "#874420", "#D99A62", 0)]:
+        img = dune(img, rng, base, amp, color, shadow, crest, blur)
+    return grain(img, 35, rng)
+
+
+def desert_night():
+    rng = random.Random(910)
+    img = vgradient([(0, "#0B1026"), (0.5, "#1F2050"), (0.7, "#4A3060"), (1, "#2A1B14")])
+    d = ImageDraw.Draw(img)
+    for _ in range(1600):
+        x, y = rng.random() * W, (rng.random() ** 1.3) * H * 0.7
+        r = rng.choice([0.6, 0.8, 1.1, 1.5]) * (1.8 if rng.random() < 0.02 else 1)
+        b = rng.randint(150, 255)
+        d.ellipse([x - r, y - r, x + r, y + r], fill=rng.choice([(b, b, b), (255, int(b * 0.9), int(b * 0.75))]))
+    img = glow(img, (W * 0.22, H * 0.2), 200, "#F5E6C8", 0.3)
+    d = ImageDraw.Draw(img)
+    d.ellipse([W * 0.22 - 60, H * 0.2 - 60, W * 0.22 + 60, H * 0.2 + 60], fill=hexrgb("#F5E6C8"))
+    for base, amp, color, shadow, crest in [(H * 0.7, 50, "#4A3A5A", "#2E2440", "#7A6A8A"),
+                                            (H * 0.82, 80, "#3A2A44", "#22182E", "#6A5A7A"),
+                                            (H * 0.96, 100, "#2A1E32", "#170F1E", "#5A4A6A")]:
+        img = dune(img, rng, base, amp, color, shadow, crest)
+    layer = Image.new("RGBA", img.size, (0, 0, 0, 0))
+    cd = ImageDraw.Draw(layer)
+    for x, h in ((W * 0.12, 300), (W * 0.83, 380), (W * 0.9, 220), (W * 0.55, 160)):
+        saguaro(cd, x, H * 0.93, h, hexrgb("#120A16"))
+    img.paste(layer, (0, 0), layer)
+    return grain(img, 35, rng)
+
+
+def desert_mesa():
+    rng = random.Random(911)
+    horizon = H * 0.7
+    img = vgradient([(0, "#6FA3B0"), (0.45, "#E8C39A"), (0.7, "#F2D3A8"), (1, "#C9693F")])
+    img = glow(img, (W * 0.25, H * 0.3), 300, "#FFF4D6", 0.5)
+    plan = [(0, "#D9A07A", "#C4865E", [(0.18, 0.34, 210), (0.62, 0.22, 170), (0.88, 0.14, 230)]),
+            (1, "#C9693F", "#A34A28", [(0.3, 0.2, 360), (0.74, 0.3, 300)])]
+    for depth, color, shade, mesas in plan:
+        layer = Image.new("RGBA", img.size, (0, 0, 0, 0))
+        d = ImageDraw.Draw(layer)
+        for fx, fw, bh in mesas:
+            cx, topw = fx * W, fw * W
+            top = horizon - bh
+            cliff = top + bh * 0.62
+            l, r = cx - topw / 2, cx + topw / 2
+            jag = [(l + (r - l) * k / 12, top + (rng.random() - 0.5) * 6) for k in range(13)]
+            body = [(l - bh * 0.03, cliff)] + jag + [(r + bh * 0.04, cliff)]
+            d.polygon(body + [(r + bh * 0.04, horizon), (l - bh * 0.03, horizon)], fill=hexrgb(color))
+            d.polygon([(l - bh * 0.03, cliff), (l - bh * 0.5, horizon), (r + bh * 0.55, horizon), (r + bh * 0.04, cliff)],
+                      fill=hexrgb(color))
+            d.polygon([(r - topw * 0.18, top), (r, top), (r + bh * 0.04, cliff), (r + bh * 0.55, horizon), (r - topw * 0.1, horizon)],
+                      fill=hexrgb(shade))
+            for k in range(1, 6):
+                y = top + (cliff - top) * k / 6
+                d.line([(l - bh * 0.03 * k / 6, y), (r + bh * 0.04 * k / 6, y)], fill=hexrgb(shade), width=2)
+            for _ in range(18):
+                x = l - bh * 0.4 + rng.random() * (topw + bh * 0.9)
+                y = cliff + rng.random() * (horizon - cliff)
+                rr = 3 + rng.random() * 7
+                d.ellipse([x - rr, y - rr * 0.6, x + rr, y + rr * 0.6], fill=hexrgb(shade))
+        if depth == 0:
+            layer = layer.filter(ImageFilter.GaussianBlur(2))
+        img.paste(layer, (0, 0), layer)
+    img = fill_below(img, ridge(rng, horizon + 10, 10, 2.2), "#D9A066", 1)
+    img = dune(img, rng, H * 0.9, 60, "#C9824E", "#9E5A2E", "#E8B078")
+    layer = Image.new("RGBA", img.size, (0, 0, 0, 0))
+    cd = ImageDraw.Draw(layer)
+    for x, h in ((W * 0.08, 240), (W * 0.93, 280)):
+        saguaro(cd, x, H * 0.98, h, hexrgb("#4A5A2A"))
+    for _ in range(60):
+        x, y = rng.random() * W, H * 0.92 + rng.random() * H * 0.08
+        r = 6 + rng.random() * 16
+        cd.ellipse([x - r, y - r * 0.6, x + r, y + r * 0.4], fill=hexrgb(rng.choice(["#6E7A3A", "#8A8A4A", "#5A6A30"])))
+    img.paste(layer, (0, 0), layer)
+    return grain(img, 30, rng)
+
+
 MAKERS = {"midnight": midnight, "midnight-galaxy": midnight_galaxy, "midnight-city": midnight_city,
           "forest": forest, "forest-rays": forest_rays, "forest-lake": forest_lake,
           "arctic": arctic, "arctic-icebergs": arctic_icebergs, "arctic-pines": arctic_pines,
-          "mint": mint, "mint-bokeh": mint_bokeh, "mint-lowpoly": mint_lowpoly}
+          "mint": mint, "mint-bokeh": mint_bokeh, "mint-lowpoly": mint_lowpoly,
+          "desert": desert, "desert-night": desert_night, "desert-mesa": desert_mesa}
+
+def load_private():
+    path = Path(__file__).resolve().parent / "private_wallpapers.py"
+    if not path.is_file():
+        return
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("private_wallpapers", path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    this = sys.modules[__name__]
+    for name, fn in getattr(mod, "MAKERS", {}).items():
+        MAKERS[name] = lambda fn=fn: fn(this)
+
 
 if __name__ == "__main__":
+    load_private()
+    if sys.argv[1:] == ["--list"]:
+        print("\n".join(MAKERS))
+        sys.exit(0)
     names = sys.argv[1:] or list(MAKERS)
     OUT.mkdir(parents=True, exist_ok=True)
     for name in names:
