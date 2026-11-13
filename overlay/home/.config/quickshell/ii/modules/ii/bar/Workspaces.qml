@@ -469,6 +469,9 @@ ButtonMouseArea {
     component NumberWorkspaceItem: WorkspaceItem {
         id: wsNum
         property bool hasBiggestWindow: !!wsModel.biggestWindow[index]
+        property bool openLogo: hasBiggestWindow && !root.superPressAndHeld && Config.options?.bar.workspaces.showAppIcons
+            && ClaudeWindows.stateFor(wsModel.biggestWindow[index]) !== ""
+            && ["pi", "codex"].includes(ClaudeWindows.agentFor(wsModel.biggestWindow[index]))
         property int wsId: wsModel.getWorkspaceIdAt(index)
         property color contentColor: (wsModel.occupied[wsNum.index] && wsId !== wsModel.fakeWorkspace) ? Appearance.colors.colOnSecondaryContainer : Appearance.colors.colOnLayer1Inactive
         property bool showingNumbers: {
@@ -482,7 +485,7 @@ ButtonMouseArea {
         }
 
         FadeLoader {
-            shown: !wsNum.showingNumbers
+            shown: !wsNum.showingNumbers && !wsNum.openLogo
             anchors.centerIn: parent
             Circle {
                 anchors.centerIn: parent
