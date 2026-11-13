@@ -11,7 +11,7 @@ RUNTIME = Path(os.environ.get("XDG_RUNTIME_DIR", f"/run/user/{os.getuid()}"))
 STATE_DIR = RUNTIME / "claude-state"
 CLAUDE_SESSIONS = Path.home() / ".claude" / "sessions"
 SESSION_STATUS = {"idle": "done", "busy": "running", "waiting": "waiting"}
-RANK = {"done": 0, "running": 1, "waiting": 2}
+RANK = {"idle": -1, "done": 0, "running": 1, "waiting": 2}
 INTERVAL = 1.0
 
 
@@ -109,7 +109,7 @@ def window_state(kitty_pid, win):
     except OSError:
         pass
     if agent != "claude":
-        return (hook[1], agent) if hook else None
+        return (hook[1], agent) if hook else ("idle", agent)
     try:
         data = json.loads((CLAUDE_SESSIONS / f"{procs[0].get('pid')}.json").read_text())
         status = data.get("status")

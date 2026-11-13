@@ -13,7 +13,7 @@ STATE = Path(os.environ.get("XDG_STATE_HOME") or Path.home() / ".local" / "state
 STATE_FILE = STATE / "theme.json"
 WALL_FILE = STATE / "theme-wallpaper.json"
 SHELL_CONFIG = Path(os.environ.get("XDG_CONFIG_HOME") or Path.home() / ".config") / "illogical-impulse" / "config.json"
-WALLPAPERS = THEMES / "wallpapers"
+WALLPAPERS = Path(os.environ.get("XDG_DATA_HOME") or Path.home() / ".local" / "share") / "quickshell-themes" / "wallpapers"
 HEX = re.compile(r"^#[0-9A-Fa-f]{6}$")
 
 BUILTIN = [
@@ -70,6 +70,16 @@ def wait_applycolor(timeout=10.0):
 def set_wallpaper(path, mode):
     subprocess.run([str(HERE / "switchwall.sh"), "--image", str(path), "--mode", mode], check=True,
                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+
+def theme_wallpaper(name):
+    if not name or not re.fullmatch(r"[a-z0-9-]+", name):
+        return None
+    path = WALLPAPERS / f"{name}.jpg"
+    if not path.is_file():
+        subprocess.run([sys.executable, str(THEMES / "make-wallpapers.py"), name],
+                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    return path if path.is_file() else None
 
 
 def current_wallpaper():
@@ -159,8 +169,8 @@ def apply(key):
         return
     t = load(key)
     mode = t.get("mode", "dark")
-    wallpaper = THEMES / t["wallpaper"] if t.get("wallpaper") else None
-    if wallpaper and wallpaper.is_file():
+    wallpaper = theme_wallpaper(t.get("wallpaper"))
+    if wallpaper:
         remember_wallpaper()
         if Path(current_wallpaper() or "/").resolve() != wallpaper.resolve():
             set_wallpaper(wallpaper, mode)

@@ -101,6 +101,7 @@ packages = { arch = ["python"], ubuntu = ["python3"] }
 description = "Bar: a palette button to switch the theme: Dark and White (from your wallpaper), Midnight, Forest, Arctic and Mint (each with its own wallpaper, a dark terminal and stars, leaves, snow or bubbles drifting over the wallpaper)"
 default = true
 desktop = true
+packages = { arch = ["python-pillow"], ubuntu = ["python3-pil"] }
 
 [module.bar-layout]
 description = "Bar: resources on the right, no brightness scroll, click the window title for the overview; no screen snip, keyboard or dark mode buttons"
@@ -222,6 +223,7 @@ sudo = true
 "home/.config/nvim/lazy-lock.json" = "nvim-vim"
 "home/.config/nvim/lua/myconfig.lua" = "nvim-vim"
 "home/.config/quickshell/ii/assets/icons/claude-symbolic.svg" = "bar-agent-usage"
+"home/.config/quickshell/ii/assets/icons/codex-symbolic.svg" = "bar-agent-usage"
 "home/.config/quickshell/ii/assets/icons/pi-symbolic.svg" = "bar-agent-usage"
 "home/.config/quickshell/ii/modules/common/Appearance.qml" = "base"
 "home/.config/quickshell/ii/modules/common/Config.qml" = "base"
@@ -273,13 +275,9 @@ sudo = true
 "home/.config/quickshell/ii/services/ai/OpenAiApiStrategy.qml" = "ai-sidebar-extras"
 "home/.config/quickshell/ii/themes/arctic.json" = "bar-themes"
 "home/.config/quickshell/ii/themes/forest.json" = "bar-themes"
+"home/.config/quickshell/ii/themes/make-wallpapers.py" = "bar-themes"
 "home/.config/quickshell/ii/themes/midnight.json" = "bar-themes"
 "home/.config/quickshell/ii/themes/mint.json" = "bar-themes"
-"home/.config/quickshell/ii/themes/wallpapers/arctic.jpg" = "bar-themes"
-"home/.config/quickshell/ii/themes/wallpapers/forest.jpg" = "bar-themes"
-"home/.config/quickshell/ii/themes/wallpapers/make-wallpapers.py" = "bar-themes"
-"home/.config/quickshell/ii/themes/wallpapers/midnight.jpg" = "bar-themes"
-"home/.config/quickshell/ii/themes/wallpapers/mint.jpg" = "bar-themes"
 "home/.config/quickshell/ii/welcome.qml" = "base"
 "home/.ideavimrc" = "nvim-vim"
 "home/.vimrc" = "nvim-vim"

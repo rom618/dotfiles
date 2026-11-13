@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import math
+import os
 import random
 import sys
 from pathlib import Path
@@ -8,7 +9,7 @@ from PIL import Image, ImageDraw, ImageFilter
 
 W, H = 2560, 1600
 OUT_SIZE = (3840, 2400)
-OUT = Path(__file__).resolve().parent
+OUT = Path(os.environ.get("XDG_DATA_HOME") or Path.home() / ".local" / "share") / "quickshell-themes" / "wallpapers"
 
 
 def hexrgb(h):
@@ -168,7 +169,9 @@ MAKERS = {"midnight": midnight, "forest": forest, "arctic": arctic, "mint": mint
 
 if __name__ == "__main__":
     names = sys.argv[1:] or list(MAKERS)
+    OUT.mkdir(parents=True, exist_ok=True)
     for name in names:
-        MAKERS[name]().resize(OUT_SIZE, Image.LANCZOS).save(OUT / f"{name}.jpg", quality=90, optimize=True,
-                                                               progressive=True)
+        tmp = OUT / f".{name}.jpg.tmp"
+        MAKERS[name]().resize(OUT_SIZE, Image.LANCZOS).save(tmp, "JPEG", quality=90, optimize=True, progressive=True)
+        tmp.replace(OUT / f"{name}.jpg")
         print(f"{name}.jpg {(OUT / f'{name}.jpg').stat().st_size // 1024} KB")

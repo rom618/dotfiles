@@ -68,6 +68,7 @@ MouseArea {
     FileView {
         id: stateFile
         path: `${Directories.state}/user/generated/theme.json`
+        printErrors: false
         watchChanges: true
         onFileChanged: reload()
         onLoaded: {

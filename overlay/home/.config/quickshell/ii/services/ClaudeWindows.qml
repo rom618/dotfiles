@@ -12,10 +12,10 @@ Singleton {
     readonly property var icons: ({
         "claude": Quickshell.shellPath("assets/icons/claude-symbolic.svg"),
         "pi": Quickshell.shellPath("assets/icons/pi-symbolic.svg"),
-        "codex": Quickshell.shellPath("assets/icons/openai-symbolic.svg")
+        "codex": Quickshell.shellPath("assets/icons/codex-symbolic.svg")
     })
     property var agents: ({})
-    readonly property var rank: ({ "done": 0, "running": 1, "waiting": 2 })
+    readonly property var rank: ({ "idle": -1, "done": 0, "running": 1, "waiting": 2 })
     property var states: ({})
     property bool installed: false
 

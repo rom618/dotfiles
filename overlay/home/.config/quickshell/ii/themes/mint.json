@@ -4,7 +4,7 @@
     "order": 30,
     "mode": "light",
     "seed": "#57CC99",
-    "wallpaper": "wallpapers/mint.jpg",
+    "wallpaper": "mint",
     "decor": "bubbles",
     "swatch": ["#22577A", "#38A3A5", "#57CC99", "#80ED99", "#C7F9CC"],
     "colors": {
