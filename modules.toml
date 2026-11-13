@@ -132,10 +132,8 @@ desktop = true
 packages = { arch = ["python"], ubuntu = ["python3"] }
 
 [module.ai-key]
-description = "The laptop's AI (Copilot) key opens the notes sidebar (needs the input group)"
-default = false
-desktop = true
-packages = { arch = ["python"], ubuntu = ["python3"] }
+description = "Retired 2026-11-13: the AI key listener was unwired on the source machine; kept so an update removes it"
+retired = true
 user_units = ["ai-key-listener.service"]
 enable = ["ai-key-listener.service"]
 
@@ -192,7 +190,6 @@ sudo = true
 "home/.config/hypr/custom/keybinds.lua" = "base"
 "home/.config/hypr/custom/rules.lua" = "base"
 "home/.config/hypr/custom/scripts/ai-config.py" = "ai-sidebar-extras"
-"home/.config/hypr/custom/scripts/ai-key-listener.py" = "ai-key"
 "home/.config/hypr/custom/scripts/change-kb-layout.sh" = "display-input"
 "home/.config/hypr/custom/scripts/clipboard-wipe.sh" = "clipboard-wipe"
 "home/.config/hypr/custom/scripts/gpu-usage.py" = "bar-resources"
@@ -205,7 +202,6 @@ sudo = true
 "home/.config/hypr/custom/scripts/session-save.py" = "session-restore"
 "home/.config/hypr/custom/scripts/ssh-askpass-keyring.sh" = "ssh-agent"
 "home/.config/hypr/custom/scripts/ssh-keys-load.sh" = "ssh-agent"
-"home/.config/hypr/custom/systemd/ai-key-listener.service" = "ai-key"
 "home/.config/hypr/custom/systemd/clipboard-wipe.service" = "clipboard-wipe"
 "home/.config/hypr/custom/systemd/clipboard-wipe.timer" = "clipboard-wipe"
 "home/.config/hypr/custom/systemd/hypr-session-save.service" = "session-restore"

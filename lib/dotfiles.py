@@ -145,12 +145,16 @@ def protected(dest):
 
 def choose_modules(manifest, state, args, distro, version):
     modules = manifest["module"]
+    retired_notes = []
     if args.all:
-        chosen = set(modules)
+        chosen = {n for n, m in modules.items() if not m.get("retired")}
     elif args.modules is not None:
         chosen = {m for m in args.modules.split(",") if m}
     elif state.get("modules") is not None:
         chosen = set(state["modules"])
+        gone = {n for n in chosen if n not in modules or modules[n].get("retired")}
+        chosen -= gone
+        retired_notes = [f"{n} (no longer offered: its files and units are removed)" for n in sorted(gone)]
     else:
         chosen = {name for name, meta in modules.items() if meta.get("default")}
     chosen |= {m for m in (args.add or "").split(",") if m}
@@ -159,7 +163,10 @@ def choose_modules(manifest, state, args, distro, version):
     unknown = chosen - set(modules)
     if unknown:
         raise SystemExit("unknown modules: " + ", ".join(sorted(unknown)))
-    dropped = []
+    retired = {n for n in chosen if modules[n].get("retired")}
+    if retired:
+        raise SystemExit("modules no longer offered: " + ", ".join(sorted(retired)))
+    dropped = list(retired_notes)
     for name in sorted(chosen):
         meta = modules[name]
         if meta.get("os") and distro not in meta["os"]:
@@ -187,7 +194,7 @@ def pick_modules(manifest, preselected, distro, version):
     order = ["Desktop", "Terminal", "System (asks for your password)"]
     rows = []
     for g in order:
-        names = [n for n, m in modules.items() if n != "base" and group_of(m) == g]
+        names = [n for n, m in modules.items() if n != "base" and not m.get("retired") and group_of(m) == g]
         if names:
             rows.append(("header", g))
             rows.extend(("module", n) for n in names)
@@ -272,7 +279,7 @@ def pick_modules(manifest, preselected, distro, version):
             elif key == ord("i"):
                 return True
             elif key == ord("a"):
-                chosen.update(n for n in modules if n != "base" and available(n))
+                chosen.update(n for n in modules if n != "base" and not modules[n].get("retired") and available(n))
             elif key == ord("n"):
                 chosen.clear()
             elif key == ord("d"):
@@ -769,7 +776,7 @@ def cmd_list(args):
     state = load_state()
     installed = set(state.get("modules") or [])
     for name, meta in manifest["module"].items():
-        if name == "base":
+        if name == "base" or meta.get("retired"):
             continue
         mark = "*" if name in installed else " "
         flags = []
