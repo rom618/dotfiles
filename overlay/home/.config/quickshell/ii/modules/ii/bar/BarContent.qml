@@ -218,7 +218,7 @@ Item { // Bar content region
                 // share:end
                 // share:begin bar-agent-usage
                 ClaudeIndicator {
-                    visible: root.useShortenedForm < 2
+                    visible: root.useShortenedForm < 2 && ClaudeWindows.installed
                     Layout.alignment: Qt.AlignVCenter
                 }
                 // share:end
@@ -380,6 +380,13 @@ Item { // Bar content region
                 Layout.fillHeight: true
             }
 
+            // share:begin bar-themes
+            BarGroup {
+                Layout.leftMargin: 4
+                ThemeIndicator {}
+            }
+
+            // share:end
             // share:begin bar-docker
             // Docker
             Loader {

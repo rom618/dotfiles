@@ -11,6 +11,13 @@ Singleton {
     readonly property string iconPath: Quickshell.shellPath("assets/icons/claude-symbolic.svg")
     readonly property var rank: ({ "done": 0, "running": 1, "waiting": 2 })
     property var states: ({})
+    property bool installed: false
+
+    Process {
+        running: true
+        command: ["bash", "-lc", "command -v claude || test -x \"$HOME/.local/bin/claude\""]
+        onExited: (exitCode, exitStatus) => root.installed = exitCode === 0
+    }
 
     function stateFor(window) {
         return window ? (root.states[window.address] ?? "") : "";

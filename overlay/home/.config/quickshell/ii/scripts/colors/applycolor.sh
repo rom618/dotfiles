@@ -45,9 +45,9 @@ apply_kitty() {
   if ! pgrep -f kitty >/dev/null; then
     return
   fi
-  kill -SIGUSR1 $(pidof kitty)
-  for pid in $(pidof kitty); do
-    kitty @ --to "unix:@mykitty-$pid" set-colors --all --configured "$STATE_DIR"/user/generated/terminal/kitty-theme.conf >/dev/null 2>&1 &
+  for pid in $(pidof kitty | tr ' ' '\n'); do
+    kill -SIGUSR1 "$pid"
+    { kitty @ --to "unix:@mykitty-$pid" set-colors --all --configured "$STATE_DIR"/user/generated/terminal/kitty-theme.conf && kitty @ --to "unix:@mykitty-$pid" set-colors --all "$STATE_DIR"/user/generated/terminal/kitty-theme.conf; } >/dev/null 2>&1 &
   done
   wait
 }

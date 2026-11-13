@@ -91,10 +91,15 @@ default = true
 desktop = true
 
 [module.bar-agent-usage]
-description = "Bar: a robot icon, and a badge on workspace icons where a Claude Code agent works, waits for you or is done (read only)"
-default = true
+description = "Bar: a robot icon (only where Claude Code is installed), and a badge on workspace icons where a Claude Code agent works, waits for you or is done (read only)"
+default = false
 desktop = true
 packages = { arch = ["python"], ubuntu = ["python3"] }
+
+[module.bar-themes]
+description = "Bar: a palette button to switch the theme: Dark and White (from the wallpaper), Green, Arctic and Mint (fixed palettes, one JSON file each in quickshell/ii/themes)"
+default = true
+desktop = true
 
 [module.bar-layout]
 description = "Bar: resources on the right, no brightness scroll, click the window title for the overview"
@@ -226,6 +231,7 @@ sudo = true
 "home/.config/quickshell/ii/modules/ii/bar/Resources.qml" = "bar-layout"
 "home/.config/quickshell/ii/modules/ii/bar/ResourcesPopup.qml" = "bar-resources"
 "home/.config/quickshell/ii/modules/ii/bar/SysTray.qml" = "bar-layout"
+"home/.config/quickshell/ii/modules/ii/bar/ThemeIndicator.qml" = "bar-themes"
 "home/.config/quickshell/ii/modules/ii/bar/Workspaces.qml" = "bar-agent-usage"
 "home/.config/quickshell/ii/modules/ii/cheatsheet/Cheatsheet.qml" = "cheatsheet-extras"
 "home/.config/quickshell/ii/modules/ii/cheatsheet/CheatsheetAliases.qml" = "cheatsheet-extras"
@@ -237,6 +243,7 @@ sudo = true
 "home/.config/quickshell/ii/modules/settings/QuickConfig.qml" = "base"
 "home/.config/quickshell/ii/scripts/ai/gemini-categorize-wallpaper.sh" = "base"
 "home/.config/quickshell/ii/scripts/claude/claude-windows.py" = "bar-agent-usage"
+"home/.config/quickshell/ii/scripts/colors/apply-theme.py" = "bar-themes"
 "home/.config/quickshell/ii/scripts/colors/applycolor.sh" = "kitty"
 "home/.config/quickshell/ii/services/Ai.qml" = "ai-sidebar-extras"
 "home/.config/quickshell/ii/services/Brightness.qml" = "base"
@@ -252,6 +259,9 @@ sudo = true
 "home/.config/quickshell/ii/services/ai/ApiStrategy.qml" = "ai-sidebar-extras"
 "home/.config/quickshell/ii/services/ai/GeminiApiStrategy.qml" = "ai-sidebar-extras"
 "home/.config/quickshell/ii/services/ai/OpenAiApiStrategy.qml" = "ai-sidebar-extras"
+"home/.config/quickshell/ii/themes/arctic.json" = "bar-themes"
+"home/.config/quickshell/ii/themes/green.json" = "bar-themes"
+"home/.config/quickshell/ii/themes/mint.json" = "bar-themes"
 "home/.config/quickshell/ii/welcome.qml" = "base"
 "home/.ideavimrc" = "nvim-vim"
 "home/.vimrc" = "nvim-vim"
