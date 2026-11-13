@@ -120,6 +120,37 @@ def tumbleweed():
             f'</svg>\n')
 
 
+def petal(light, dark):
+    return (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">'
+            f'<defs><radialGradient id="g" cx="0.5" cy="0.75" r="0.75">'
+            f'<stop offset="0" stop-color="#FFFFFF"/><stop offset="0.45" stop-color="{light}"/><stop offset="1" stop-color="{dark}"/></radialGradient></defs>'
+            f'<path d="M50 94C24 80 14 52 22 30C28 14 40 8 46 18L50 26L54 18C60 8 72 14 78 30C86 52 76 80 50 94Z" fill="url(#g)"/>'
+            f'<path d="M50 90L50 40" stroke="{dark}" stroke-opacity="0.35" stroke-width="1.5" fill="none"/>'
+            f'</svg>\n')
+
+
+def jellyfish(body, glow_color):
+    tentacles = "".join(f'<path d="M{x} 54C{x - 6} 66 {x + 6} 76 {x} 96" stroke="{body}" stroke-opacity="0.6" '
+                        f'stroke-width="2" fill="none" stroke-linecap="round"/>' for x in (32, 42, 50, 58, 68))
+    return (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">'
+            f'<defs><radialGradient id="g" cx="0.5" cy="0.3" r="0.6">'
+            f'<stop offset="0" stop-color="#FFFFFF" stop-opacity="0.9"/><stop offset="0.5" stop-color="{body}" stop-opacity="0.65"/>'
+            f'<stop offset="1" stop-color="{glow_color}" stop-opacity="0.25"/></radialGradient></defs>'
+            f'<circle cx="50" cy="40" r="34" fill="{glow_color}" fill-opacity="0.12"/>'
+            f'{tentacles}'
+            f'<path d="M20 52C20 26 34 14 50 14C66 14 80 26 80 52C74 48 70 56 64 52C58 48 56 56 50 52C44 48 42 56 36 52C30 48 26 56 20 52Z" fill="url(#g)"/>'
+            f'</svg>\n')
+
+
+def glow_dot(core, glow_color, ring=0.5):
+    return (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">'
+            f'<defs><radialGradient id="g" cx="0.5" cy="0.5" r="0.5">'
+            f'<stop offset="0" stop-color="{core}"/><stop offset="0.18" stop-color="{core}"/>'
+            f'<stop offset="0.4" stop-color="{glow_color}" stop-opacity="{ring}"/>'
+            f'<stop offset="1" stop-color="{glow_color}" stop-opacity="0"/></radialGradient></defs>'
+            f'<circle cx="50" cy="50" r="50" fill="url(#g)"/></svg>\n')
+
+
 ASSETS = {
     "snowflake-1.svg": snowflake([], 40, [12, 9, 6], [14, 24, 32], 7),
     "snowflake-2.svg": snowflake([20, 30], 42, [16], [12], 9),
@@ -135,6 +166,19 @@ ASSETS = {
     "sparkle-white.svg": sparkle("#F2F4FF", "#A6B1FF"),
     "sparkle-gold.svg": sparkle("#FBEBC2", "#F5D687"),
     "tumbleweed.svg": tumbleweed(),
+    "petal-pink.svg": petal("#F8B7CD", "#E07A9E"),
+    "petal-blush.svg": petal("#FBD3E0", "#F09AB8"),
+    "petal-white.svg": petal("#FFF0F5", "#F4C2D4"),
+    "jellyfish-cyan.svg": jellyfish("#6FD3E6", "#3EE6FF"),
+    "jellyfish-violet.svg": jellyfish("#C7A6FF", "#9A6BFF"),
+    "jellyfish-pink.svg": jellyfish("#F7A8D8", "#FF6FC8"),
+    "ember.svg": glow_dot("#FFF2C2", "#FF6A1A", 0.7),
+    "ember-red.svg": glow_dot("#FFD0A0", "#E8341C", 0.6),
+    "firefly.svg": glow_dot("#FFFBD0", "#D8F27A", 0.55),
+    "leaf-red.svg": leaf_maple("#F28B5A", "#A8241A"),
+    "leaf-rust.svg": leaf_maple("#E89A5A", "#8A3A10"),
+    "leaf-orange.svg": leaf_ovate("#F7B860", "#B5551A"),
+    "leaf-yellow.svg": leaf_ovate("#F8DC7A", "#B88A1A"),
 }
 
 if __name__ == "__main__":

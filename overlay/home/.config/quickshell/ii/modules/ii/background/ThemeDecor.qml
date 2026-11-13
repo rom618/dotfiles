@@ -65,7 +65,7 @@ Scope {
                 anchors.fill: parent
 
                 Repeater {
-                    model: root.decor === "stars" ? 70 : (root.decor === "leaves" ? 22 : (root.decor === "snow" ? 45 : (root.decor === "sand" ? 90 : 26)))
+                    model: ({ stars: 70, leaves: 22, autumn: 22, petals: 28, snow: 45, sand: 90, rain: 140, embers: 40, fireflies: 30, ocean: 30 })[root.decor] ?? 26
                     delegate: Loader {
                         required property int index
                         sourceComponent: root.decor === "stars" ? star : drifter
@@ -89,17 +89,24 @@ Scope {
                     id: p
                     property real progress: 0
                     property real startX: 0
+                    property real startY: 0
                     property real sway: 40
                     property real swayCycles: 1
                     property real spin: 0
                     property real depth: 1
                     property real size: 12
                     property real duration: 12000
+                    property real blinks: 3
                     property string asset: ""
-                    readonly property bool rising: root.decor === "bubbles"
-                    readonly property bool windy: root.decor === "sand"
-                    property real startY: 0
-                    property color grain: "#D9A066"
+                    property color tint: "#D9A066"
+                    readonly property string kind: root.decor
+                    readonly property bool rising: kind === "bubbles" || kind === "embers" || kind === "ocean"
+                    readonly property bool windy: kind === "sand"
+                    readonly property bool wander: kind === "fireflies"
+                    readonly property bool rain: kind === "rain"
+                    readonly property bool flat: windy || rain
+                    readonly property bool tumble: kind === "leaves" || kind === "autumn" || kind === "petals"
+                    readonly property bool jelly: asset.startsWith("jellyfish")
 
                     function pick(list) {
                         return list[Math.floor(Math.random() * list.length)];
@@ -107,60 +114,114 @@ Scope {
 
                     function reset() {
                         startX = Math.random() * field.width;
+                        startY = Math.random() * field.height;
                         depth = 0.45 + Math.random() * 0.55;
                         swayCycles = 0.6 + Math.random() * 1.4;
-                        if (root.decor === "snow") {
+                        spin = 0;
+                        asset = "";
+                        if (kind === "snow") {
                             size = (10 + Math.random() * 18) * depth;
                             sway = (20 + Math.random() * 45) * depth;
                             duration = (16000 + Math.random() * 10000) / depth;
                             spin = (Math.random() < 0.5 ? -1 : 1) * (60 + Math.random() * 180);
                             asset = pick(["snowflake-1", "snowflake-2", "snowflake-3"]);
-                        } else if (root.decor === "leaves") {
+                        } else if (kind === "leaves" || kind === "autumn") {
                             size = (20 + Math.random() * 18) * depth;
                             sway = (70 + Math.random() * 110) * depth;
                             duration = (15000 + Math.random() * 12000) / depth;
                             spin = (Math.random() < 0.5 ? -1 : 1) * (240 + Math.random() * 420);
-                            asset = pick(["leaf-green", "leaf-lime", "leaf-gold", "leaf-amber", "leaf-moss"]);
-                        } else if (root.decor === "sand") {
+                            asset = kind === "leaves" ? pick(["leaf-green", "leaf-lime", "leaf-gold", "leaf-amber", "leaf-moss"])
+                                                      : pick(["leaf-red", "leaf-rust", "leaf-orange", "leaf-yellow", "leaf-amber"]);
+                        } else if (kind === "petals") {
+                            size = (12 + Math.random() * 12) * depth;
+                            sway = (60 + Math.random() * 120) * depth;
+                            duration = (18000 + Math.random() * 12000) / depth;
+                            spin = (Math.random() < 0.5 ? -1 : 1) * (120 + Math.random() * 260);
+                            asset = pick(["petal-pink", "petal-blush", "petal-white"]);
+                        } else if (kind === "sand") {
                             startY = field.height * (0.35 + Math.pow(Math.random(), 0.7) * 0.65);
                             size = (2 + Math.random() * 3.5) * depth;
                             sway = (10 + Math.random() * 40) * depth;
                             duration = (5000 + Math.random() * 5000) / depth;
-                            spin = 0;
-                            asset = "";
-                            grain = pick(["#E0B07A", "#D9A066", "#C9824E", "#F2CE96", "#B5713F"]);
+                            tint = pick(["#E0B07A", "#D9A066", "#C9824E", "#F2CE96", "#B5713F"]);
+                        } else if (kind === "rain") {
+                            size = (18 + Math.random() * 30) * depth;
+                            sway = 0;
+                            duration = (650 + Math.random() * 550) / depth;
+                            tint = pick(["#3EE6FF", "#FF4FD8", "#C9F6FF", "#8A80B0"]);
+                        } else if (kind === "embers") {
+                            size = (6 + Math.random() * 12) * depth;
+                            sway = (20 + Math.random() * 60) * depth;
+                            duration = (7000 + Math.random() * 7000) / depth;
+                            blinks = 4 + Math.random() * 6;
+                            asset = pick(["ember", "ember", "ember-red"]);
+                        } else if (kind === "fireflies") {
+                            startY = field.height * (0.3 + Math.random() * 0.65);
+                            size = (12 + Math.random() * 14) * depth;
+                            sway = (60 + Math.random() * 140) * depth;
+                            duration = 12000 + Math.random() * 12000;
+                            blinks = 2 + Math.random() * 4;
+                            asset = "firefly";
+                        } else if (kind === "ocean") {
+                            if (Math.random() < 0.18) {
+                                size = (44 + Math.random() * 40) * depth;
+                                sway = (20 + Math.random() * 40) * depth;
+                                duration = (30000 + Math.random() * 20000) / depth;
+                                asset = pick(["jellyfish-cyan", "jellyfish-violet", "jellyfish-pink"]);
+                            } else {
+                                size = (8 + Math.random() * 18) * depth;
+                                sway = (12 + Math.random() * 25) * depth;
+                                duration = (12000 + Math.random() * 10000) / depth;
+                                asset = pick(["bubble-white", "bubble-teal"]);
+                            }
                         } else {
                             size = (14 + Math.random() * 30) * depth;
                             sway = (12 + Math.random() * 30) * depth;
                             duration = (14000 + Math.random() * 14000) / depth;
-                            spin = 0;
                             asset = pick(["bubble-white", "bubble-mint", "bubble-teal"]);
                         }
                     }
 
-                    width: size
+                    width: rain ? 1.6 : size
                     height: size
-                    x: windy ? -40 + progress * (field.width + 80) : startX + sway * Math.sin(progress * Math.PI * 2 * swayCycles)
+                    x: windy ? -40 + progress * (field.width + 80)
+                       : rain ? startX - 140 + progress * 260
+                       : startX + sway * Math.sin(progress * Math.PI * 2 * swayCycles)
                     y: windy ? startY + sway * Math.sin(progress * Math.PI * 2 * swayCycles) - progress * 60 * depth
-                       : (rising ? field.height + 40 - progress * (field.height + 80) : -40 + progress * (field.height + 80))
-                    rotation: spin * progress
-                    opacity: (rising ? 0.95 * (1 - progress * 0.7) : 0.95) * (0.45 + 0.55 * depth)
+                       : wander ? startY + sway * 0.6 * Math.cos(progress * Math.PI * 2 * swayCycles * 0.7)
+                       : rain ? -60 + progress * (field.height + 120)
+                       : rising ? field.height + 40 - progress * (field.height + 80)
+                       : -40 + progress * (field.height + 80)
+                    rotation: rain ? 28 : spin * progress
+                    opacity: {
+                        const d = 0.45 + 0.55 * depth;
+                        if (kind === "embers")
+                            return d * (1 - progress) * (0.55 + 0.45 * Math.abs(Math.sin(progress * Math.PI * blinks)));
+                        if (wander)
+                            return d * (0.08 + 0.92 * Math.pow(Math.max(0, Math.sin(progress * Math.PI * 2 * blinks)), 2));
+                        if (rain)
+                            return 0.5 * d;
+                        if (rising)
+                            return 0.95 * (1 - progress * 0.7) * d;
+                        return 0.95 * d;
+                    }
                     transform: Scale {
                         origin.x: p.width / 2
                         origin.y: p.height / 2
-                        xScale: root.decor === "leaves" ? Math.cos(p.progress * Math.PI * 2 * p.swayCycles * 2) : 1
-                        yScale: root.decor === "bubbles" ? 1 + 0.06 * Math.sin(p.progress * Math.PI * 14) : 1
+                        xScale: p.tumble ? Math.cos(p.progress * Math.PI * 2 * p.swayCycles * 2) : 1
+                        yScale: p.jelly ? 1 + 0.12 * Math.sin(p.progress * Math.PI * 40)
+                                : (p.kind === "bubbles" || p.kind === "ocean" ? 1 + 0.06 * Math.sin(p.progress * Math.PI * 14) : 1)
                     }
 
                     Rectangle {
-                        visible: p.windy
+                        visible: p.flat
                         anchors.fill: parent
-                        radius: width / 2
-                        color: p.grain
+                        radius: p.rain ? 1 : width / 2
+                        color: p.tint
                     }
 
                     Image {
-                        visible: !p.windy
+                        visible: !p.flat
                         anchors.fill: parent
                         source: p.asset ? Quickshell.shellPath(`assets/decor/${p.asset}.svg`) : ""
                         sourceSize.width: 96
