@@ -143,6 +143,12 @@ default = true
 desktop = false
 sudo = true
 
+[module.battery-limit]
+description = "Laptop battery stops charging at 80% (kept after sleep), for laptops whose kernel exposes a charge limit (ASUS, ThinkPad, Dell, and others)"
+default = false
+desktop = false
+sudo = true
+
 [module.docker-image-prune]
 description = "Removes untagged Docker images older than 6 hours, every 6 hours"
 default = true
@@ -286,4 +292,6 @@ sudo = true
 "root/etc/systemd/system/docker-image-prune.timer" = "docker-image-prune"
 "root/etc/systemd/system/paccache.service.d/keep.conf" = "paccache-keep"
 "root/etc/systemd/user.conf.d/io-accounting.conf" = "io-accounting"
+"root/etc/udev/rules.d/90-battery-charge-limit.rules" = "battery-limit"
+"root/usr/lib/systemd/system-sleep/battery-charge-limit" = "battery-limit"
 "root/usr/share/sddm/themes/silent/configs/default.conf" = "sddm-theme"

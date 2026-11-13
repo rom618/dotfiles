@@ -1,0 +1,8 @@
+#!/bin/sh
+case "$1" in
+    post)
+        for b in /sys/class/power_supply/BAT?/charge_control_end_threshold; do
+            [ -w "$b" ] && echo 80 > "$b"
+        done
+        ;;
+esac
