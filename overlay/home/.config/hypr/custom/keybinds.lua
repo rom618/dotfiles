@@ -53,6 +53,10 @@ hl.bind("SUPER + SHIFT + T", hl.dsp.exec_cmd(os.getenv("HOME") .. "/.config/hypr
     { description = "App: Reopen the last closed terminal" })
 hl.bind("SUPER + ALT + T", hl.dsp.global("quickshell:screenTranslate"),
     { description = "Utilities: Translate screen content" })
+hl.unbind("SUPER + Return")
+hl.unbind("SUPER + T")
+hl.bind("SUPER + Return", hl.dsp.exec_cmd("kitty -1"), { description = "App: Terminal (kitty)" })
+hl.bind("SUPER + T", hl.dsp.exec_cmd("kitty -1"))
 
 -- share:end
 -- share:begin lockscreen

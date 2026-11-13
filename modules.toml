@@ -1,7 +1,7 @@
 end4_commit = "42d0aae17b744a38cd05c9044c189bfc9b13869a"
 
 [module.base]
-description = "Fixes on top of end-4: per-user temp folders, weather retry, shared config keys, shadow render power for Hyprland 0.57, search opens only on a lone Super tap; no anime image boards"
+description = "Fixes on top of end-4: per-user temp folders, weather retry, shared config keys, shadow render power for Hyprland 0.57, search opens only on a lone Super tap, translucent foot; no anime image boards"
 default = true
 desktop = true
 remove = [".config/quickshell/ii/modules/ii/sidebarLeft/Anime.qml", ".config/quickshell/ii/modules/ii/sidebarLeft/anime", ".config/quickshell/ii/services/Booru.qml", ".config/quickshell/ii/services/BooruResponseData.qml", ".config/quickshell/ii/scripts/colors/random/random_konachan_wall.sh", ".config/quickshell/ii/defaults/ai/prompts/ii-Imouto.md"]
@@ -185,6 +185,7 @@ sudo = true
 "home/.config/fish/conf.d/dev-shortcuts.fish" = "dev-git"
 "home/.config/fish/conf.d/kitty-restore.fish" = "kitty"
 "home/.config/fish/config.fish" = "base"
+"home/.config/foot/foot.ini" = "base"
 "home/.config/hypr/custom/env.lua" = "base"
 "home/.config/hypr/custom/execs.lua" = "base"
 "home/.config/hypr/custom/general.lua" = "display-input"
@@ -249,6 +250,7 @@ sudo = true
 "home/.config/quickshell/ii/scripts/claude/claude-windows.py" = "bar-agent-usage"
 "home/.config/quickshell/ii/scripts/colors/apply-theme.py" = "bar-themes"
 "home/.config/quickshell/ii/scripts/colors/applycolor.sh" = "kitty"
+"home/.config/quickshell/ii/scripts/colors/terminal/sequences.txt" = "base"
 "home/.config/quickshell/ii/services/Ai.qml" = "ai-sidebar-extras"
 "home/.config/quickshell/ii/services/Brightness.qml" = "base"
 "home/.config/quickshell/ii/services/ClaudeWindows.qml" = "bar-agent-usage"
