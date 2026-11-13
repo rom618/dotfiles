@@ -5,7 +5,7 @@ description = "Fixes on top of end-4: per-user temp folders, weather retry, shar
 default = true
 desktop = true
 remove = [".config/quickshell/ii/modules/ii/sidebarLeft/Anime.qml", ".config/quickshell/ii/modules/ii/sidebarLeft/anime", ".config/quickshell/ii/services/Booru.qml", ".config/quickshell/ii/services/BooruResponseData.qml", ".config/quickshell/ii/scripts/colors/random/random_konachan_wall.sh", ".config/quickshell/ii/defaults/ai/prompts/ii-Imouto.md"]
-settings = { background.widgets.clock.enable = [true, false], bar.weather.enable = [false, true] }
+settings = { "background.widgets.clock.enable" = [true, false], "bar.weather.enable" = [false, true] }
 
 [module.display-input]
 description = "Monitor layout and scale, keyboard layouts, layout switch on SUPER+Space"
@@ -106,7 +106,7 @@ desktop = true
 description = "Bar: resources on the right, no brightness scroll, click the window title for the overview; no screen snip, keyboard or dark mode buttons"
 default = true
 desktop = true
-settings = { bar.utilButtons.showScreenSnip = [true, false], bar.utilButtons.showKeyboardToggle = [true, false], bar.utilButtons.showDarkModeToggle = [true, false] }
+settings = { "bar.utilButtons.showScreenSnip" = [true, false], "bar.utilButtons.showKeyboardToggle" = [true, false], "bar.utilButtons.showDarkModeToggle" = [true, false] }
 
 [module.bar-resources]
 description = "Bar: disk (root and a separate home) and GPU load in the resources popup"
@@ -123,7 +123,7 @@ desktop = true
 description = "Night light follows sunset and sunrise from the weather service"
 default = true
 desktop = true
-settings = { light.night.followSun = [false, true] }
+settings = { "light.night.followSun" = [false, true] }
 
 [module.ai-sidebar-extras]
 description = "AI sidebar: thinking on and off, local Ollama models unloaded when idle, shell command tool, assistant name and icon, aiconfig"

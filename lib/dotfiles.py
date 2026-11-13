@@ -533,6 +533,9 @@ def apply_settings(manifest, chosen, state, plan):
     wanted = {}
     for name in sorted(chosen):
         for key, pair in manifest["module"][name].get("settings", {}).items():
+            if not isinstance(pair, list) or len(pair) != 2:
+                plan.note(f"skipped setting {key} of {name}: not an [end-4 default, value] pair")
+                continue
             wanted[key] = {"default": pair[0], "value": pair[1]}
     if not wanted and not recorded:
         return
