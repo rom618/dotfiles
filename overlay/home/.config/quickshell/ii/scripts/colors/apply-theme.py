@@ -28,7 +28,7 @@ def load(key):
     if not re.fullmatch(r"[a-z0-9-]+", key) or not path.is_file():
         raise SystemExit(f"unknown theme: {key}")
     t = json.loads(path.read_text())
-    for group in ("colors", "terminal"):
+    for group in ("colors", "terminal", "kitty"):
         for name, value in t.get(group, {}).items():
             if not HEX.match(value):
                 raise SystemExit(f"{path.name}: {group}.{name} is not #RRGGBB: {value}")
@@ -86,10 +86,29 @@ def override(t):
     write_atomic(scss_path, "\n".join(lines) + "\n")
     subprocess.run([str(HERE / "applycolor.sh")], check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     wait_applycolor()
+    kitty_overrides(t.get("kitty", {}))
     json_path = STATE / "colors.json"
     data = json.loads(json_path.read_text())
     data.update({k: v.lower() for k, v in colors.items()})
     write_atomic(json_path, json.dumps(data, indent=2) + "\n")
+
+
+def kitty_overrides(values):
+    path = STATE / "terminal" / "kitty-theme.conf"
+    if not values or not path.exists():
+        return
+    lines = []
+    for line in path.read_text().splitlines():
+        key = line.split(None, 1)[0] if line.strip() else ""
+        if key in values:
+            line = f"{key:<22}{values[key]}"
+        lines.append(line)
+    write_atomic(path, "\n".join(lines) + "\n")
+    pids = subprocess.run(["pidof", "kitty"], capture_output=True, text=True).stdout.split()
+    for pid in pids:
+        for extra in (["--configured"], []):
+            subprocess.run(["kitty", "@", "--to", f"unix:@mykitty-{pid}", "set-colors", "--all", *extra, str(path)],
+                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 
 def apply(key):

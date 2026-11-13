@@ -98,7 +98,7 @@ desktop = true
 packages = { arch = ["python"], ubuntu = ["python3"] }
 
 [module.bar-themes]
-description = "Bar: a palette button to switch the theme: Dark and White (from the wallpaper), Green, Arctic and Mint (fixed palettes, one JSON file each in quickshell/ii/themes)"
+description = "Bar: a palette button to switch the theme: Dark and White (from the wallpaper), Forest, Arctic and Mint (fixed palettes with a dark terminal, one JSON file each in quickshell/ii/themes)"
 default = true
 desktop = true
 
@@ -248,6 +248,7 @@ sudo = true
 "home/.config/quickshell/ii/scripts/colors/apply-theme.py" = "bar-themes"
 "home/.config/quickshell/ii/scripts/colors/applycolor.sh" = "kitty"
 "home/.config/quickshell/ii/scripts/colors/terminal/sequences.txt" = "base"
+"home/.config/quickshell/ii/scripts/colors/theme-contrast.py" = "bar-themes"
 "home/.config/quickshell/ii/services/Ai.qml" = "ai-sidebar-extras"
 "home/.config/quickshell/ii/services/Brightness.qml" = "base"
 "home/.config/quickshell/ii/services/ClaudeWindows.qml" = "bar-agent-usage"
@@ -263,7 +264,7 @@ sudo = true
 "home/.config/quickshell/ii/services/ai/GeminiApiStrategy.qml" = "ai-sidebar-extras"
 "home/.config/quickshell/ii/services/ai/OpenAiApiStrategy.qml" = "ai-sidebar-extras"
 "home/.config/quickshell/ii/themes/arctic.json" = "bar-themes"
-"home/.config/quickshell/ii/themes/green.json" = "bar-themes"
+"home/.config/quickshell/ii/themes/forest.json" = "bar-themes"
 "home/.config/quickshell/ii/themes/mint.json" = "bar-themes"
 "home/.config/quickshell/ii/welcome.qml" = "base"
 "home/.ideavimrc" = "nvim-vim"
