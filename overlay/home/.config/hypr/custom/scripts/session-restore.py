@@ -122,6 +122,16 @@ def kitty_session(entry, path):
     path.write_text("\n".join(lines) + "\n")
 
 
+CHROMIUM = {"chrome", "google-chrome", "google-chrome-stable", "google-chrome-beta", "chromium", "chromium-browser",
+            "brave", "brave-browser", "vivaldi", "vivaldi-bin", "microsoft-edge", "microsoft-edge-stable", "thorium-browser"}
+
+
+def restore_argv(argv):
+    if argv and os.path.basename(argv[0]) in CHROMIUM and "--restore-last-session" not in argv:
+        return argv + ["--restore-last-session"]
+    return argv
+
+
 def matches(entry, name):
     name = name.lower()
     argv0 = os.path.basename((entry.get("argv") or [""])[0]).lower()
@@ -145,7 +155,7 @@ def launch(entries, ensure):
             windows = entry.get("windows") or [{}]
             if not argv:
                 continue
-            exec_cmd(with_cwd(shlex.join(argv), entry.get("cwd")), windows[0])
+            exec_cmd(with_cwd(shlex.join(restore_argv(argv)), entry.get("cwd")), windows[0])
             expected += [{"class": entry.get("class", ""), **w} for w in windows]
             pending = [n for n in pending if not matches(entry, n)]
         time.sleep(SPAWN_DELAY)

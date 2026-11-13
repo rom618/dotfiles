@@ -187,7 +187,7 @@ def main():
         if not argv:
             continue
         entries.append({"kind": "app", "class": cls, "argv": argv, "cwd": read_cwd(pid),
-                        "windows": [placement(c) for c in group]})
+                        "windows": [{**placement(c), "class": c.get("class", cls)} for c in group]})
 
     STATE_DIR.mkdir(parents=True, exist_ok=True)
     tmp = STATE_FILE.with_suffix(".tmp")
