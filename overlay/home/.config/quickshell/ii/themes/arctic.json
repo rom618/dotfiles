@@ -4,7 +4,7 @@
     "order": 20,
     "mode": "light",
     "seed": "#61A5C2",
-    "wallpapers": ["arctic", "arctic-icebergs", "arctic-pines"],
+    "wallpapers": ["arctic-pines"],
     "decor": "snow",
     "swatch": ["#013A63", "#2A6F97", "#61A5C2", "#A9D6E5", "#5E60CE"],
     "colors": {
