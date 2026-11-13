@@ -8,6 +8,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import textwrap
 import tomllib
 from pathlib import Path
 
@@ -201,7 +202,20 @@ def pick_modules(manifest, preselected, distro, version):
 
     chosen = {n for n in preselected if n != "base" and available(n)}
     defaults = {n for n, m in modules.items() if m.get("default") and n != "base" and available(n)}
-    items = [i for i, r in enumerate(rows) if r[0] == "module"]
+    rows.append(("install", ""))
+    items = [i for i, r in enumerate(rows) if r[0] in ("module", "install")]
+    help_text = "Space/Enter: tick, i: install, a: all, n: none, d: defaults, q: quit"
+
+    def details(name, width):
+        meta = modules[name]
+        text = meta["description"]
+        if not available(name):
+            text = "Not available on this system. " + text
+        elif meta.get("default"):
+            text += " (on by default)"
+        if meta.get("sudo") or group_of(meta).startswith("System"):
+            text += " Changes system files: asks for your password."
+        return textwrap.wrap(f"{name}: {text}", max(20, width - 1))
 
     def ui(scr):
         curses.curs_set(0)
@@ -210,9 +224,18 @@ def pick_modules(manifest, preselected, distro, version):
         while True:
             scr.erase()
             h, w = scr.getmaxyx()
-            scr.addnstr(0, 0, "Choose modules: space ticks, a all, n none, d defaults, enter installs, q quits", w - 1, curses.A_BOLD)
-            body = h - 5
+            scr.addnstr(0, 0, "Choose modules", w - 1, curses.A_BOLD)
+            for i, line in enumerate(textwrap.wrap(help_text, max(20, w - 1))[:2]):
+                scr.addnstr(1 + i, 0, line, w - 1, curses.A_DIM)
             cur = items[pos]
+            kind_cur, name = rows[cur]
+            info = details(name, w) if kind_cur == "module" else textwrap.wrap(
+                f"Installs end-4's base and the {len(chosen)} ticked modules.", max(20, w - 1))
+            info = info[:max(1, h // 3)]
+            first = 4
+            body = h - first - len(info) - 1
+            if body < 1:
+                body = 1
             if cur < top:
                 top = cur
             if cur >= top + body:
@@ -222,30 +245,32 @@ def pick_modules(manifest, preselected, distro, version):
             for y, idx in enumerate(range(top, min(len(rows), top + body))):
                 kind, value = rows[idx]
                 if kind == "header":
-                    scr.addnstr(2 + y, 0, value, w - 1, curses.A_UNDERLINE)
+                    scr.addnstr(first + y, 0, value, w - 1, curses.A_UNDERLINE)
+                    continue
+                if kind == "install":
+                    line = f"  [ Install {len(chosen)} modules ]"
+                    scr.addnstr(first + y, 0, line, w - 1, curses.A_BOLD | (curses.A_REVERSE if idx == cur else 0))
                     continue
                 ok = available(value)
                 box = "[x]" if value in chosen else ("[-]" if not ok else "[ ]")
-                line = f"  {box} {value:20} {modules[value]['description']}"
+                mark = "  (default)" if modules[value].get("default") and ok else ""
                 attr = curses.A_REVERSE if idx == cur else (curses.A_DIM if not ok else 0)
-                scr.addnstr(2 + y, 0, line, w - 1, attr)
-            name = rows[cur][1]
-            meta = modules[name]
-            info = meta["description"]
-            if not available(name):
-                info = "not available on this system: " + info
-            elif meta.get("default"):
-                info += " (default)"
-            scr.addnstr(h - 2, 0, info, w - 1)
-            scr.addnstr(h - 1, 0, f"{len(chosen)} chosen", w - 1, curses.A_DIM)
+                scr.addnstr(first + y, 0, f"  {box} {value}{mark}", w - 1, attr)
+            for i, line in enumerate(info):
+                scr.addnstr(h - len(info) + i, 0, line, w - 1)
             key = scr.getch()
             if key in (curses.KEY_UP, ord("k")):
                 pos = max(0, pos - 1)
             elif key in (curses.KEY_DOWN, ord("j")):
                 pos = min(len(items) - 1, pos + 1)
-            elif key == ord(" "):
-                if available(name):
+            elif key in (ord(" "), 10, 13, curses.KEY_ENTER):
+                if kind_cur == "install":
+                    if key != ord(" "):
+                        return True
+                elif available(name):
                     chosen.symmetric_difference_update({name})
+            elif key == ord("i"):
+                return True
             elif key == ord("a"):
                 chosen.update(n for n in modules if n != "base" and available(n))
             elif key == ord("n"):
@@ -253,8 +278,6 @@ def pick_modules(manifest, preselected, distro, version):
             elif key == ord("d"):
                 chosen.clear()
                 chosen.update(defaults)
-            elif key in (10, 13, curses.KEY_ENTER):
-                return True
             elif key in (ord("q"), 27):
                 return False
 

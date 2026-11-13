@@ -14,10 +14,11 @@ Works on Arch and on Ubuntu 26.04 or newer. On Ubuntu 24.04 only the terminal mo
     cd ~/.local/share/dotfiles/repo
     ./install.sh                            # pick modules in a checklist, then install
 
-The checklist shows every module with its description, grouped (Desktop, Terminal, System),
-defaults ticked; on a later run, your current choice is ticked. Space ticks, Enter installs,
-`d` resets to the defaults, `q` quits without changing anything. Modules your system cannot run
-are greyed out.
+The checklist shows every module, grouped (Desktop, Terminal, System), defaults ticked; on a
+later run, your current choice is ticked. The highlighted module's full description is shown at
+the bottom. Space or Enter ticks a module; `i`, or Enter on the `[ Install ]` row at the end,
+installs; `d` resets to the defaults; `q` quits without changing anything. Modules your system
+cannot run are greyed out.
 
 Without the checklist (scripts, agents):
 
