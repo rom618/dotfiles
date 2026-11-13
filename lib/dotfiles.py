@@ -505,6 +505,73 @@ def apply_removals(manifest, chosen, plan):
                     target.unlink()
 
 
+SHELL_CONFIG = HOME / ".config" / "illogical-impulse" / "config.json"
+MISSING = object()
+
+
+def config_get(cfg, key):
+    node = cfg
+    for part in key.split("."):
+        if not isinstance(node, dict) or part not in node:
+            return MISSING
+        node = node[part]
+    return node
+
+
+def config_set(cfg, key, value):
+    parts = key.split(".")
+    node = cfg
+    for part in parts[:-1]:
+        if not isinstance(node.get(part), dict):
+            node[part] = {}
+        node = node[part]
+    node[parts[-1]] = value
+
+
+def apply_settings(manifest, chosen, state, plan):
+    recorded = state.setdefault("settings", {})
+    wanted = {}
+    for name in sorted(chosen):
+        for key, pair in manifest["module"][name].get("settings", {}).items():
+            wanted[key] = {"default": pair[0], "value": pair[1]}
+    if not wanted and not recorded:
+        return
+    try:
+        cfg = json.loads(SHELL_CONFIG.read_text()) if SHELL_CONFIG.exists() else {}
+    except ValueError:
+        plan.note(f"skipped settings: {SHELL_CONFIG} is not valid JSON")
+        return
+    changed = False
+    for key, want in sorted(wanted.items()):
+        current = config_get(cfg, key)
+        if current == want["value"]:
+            recorded[key] = want
+            continue
+        if recorded.get(key, {}).get("yours"):
+            continue
+        before = recorded.get(key, {}).get("value", MISSING)
+        ours = current is MISSING or (current == before if before is not MISSING else current == want["default"])
+        if ours:
+            plan.say(f"set {key} = {json.dumps(want['value'])}")
+            config_set(cfg, key, want["value"])
+            recorded[key] = want
+            changed = True
+            continue
+        plan.note(f"kept your {key} = {json.dumps(current)} (this config sets {json.dumps(want['value'])})")
+        recorded[key] = dict(want, yours=True)
+    for key in sorted(set(recorded) - set(wanted)):
+        old = recorded.pop(key)
+        if not old.get("yours") and config_get(cfg, key) == old["value"]:
+            plan.say(f"set {key} back to end-4's {json.dumps(old['default'])}")
+            config_set(cfg, key, old["default"])
+            changed = True
+    if changed and not plan.dry_run:
+        SHELL_CONFIG.parent.mkdir(parents=True, exist_ok=True)
+        tmp = SHELL_CONFIG.with_name(SHELL_CONFIG.name + ".tmp")
+        tmp.write_text(json.dumps(cfg, indent=2, ensure_ascii=False) + "\n")
+        tmp.replace(SHELL_CONFIG)
+
+
 def user_bus():
     if shutil.which("systemctl") is None:
         return False
@@ -645,6 +712,7 @@ def cmd_install(args):
     previous = state.get("modules")
     apply_removals(manifest, chosen, plan)
     apply_files(manifest, chosen, state, plan)
+    apply_settings(manifest, chosen, state, plan)
     apply_units(manifest, chosen, previous, plan)
     apply_sddm(chosen, previous, plan)
     apply_multi_user(chosen, args, plan)

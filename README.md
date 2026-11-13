@@ -46,6 +46,12 @@ version is written next to it as `<name>.dotfiles-new`, and `status` lists them.
 want, then delete the `.dotfiles-new` file. A file that existed before the first install is
 backed up to `~/.local/state/dotfiles/backup/` before it is replaced.
 
+Some modules also set a few shell settings in `~/.config/illogical-impulse/config.json` (for
+example which bar buttons show). The same rule applies per setting: the installer only changes a
+setting that is still at end-4's default or at the value it set itself. A setting you changed is
+kept (the installer says so once) and is never touched again; removing the module puts its
+unchanged settings back to end-4's defaults.
+
 end-4's own files follow end-4's rules: its installer may overwrite them when the pinned end-4
 commit changes.
 
