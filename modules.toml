@@ -175,6 +175,7 @@ sudo = true
 
 [files]
 "home/.config/fish/conf.d/dev-shortcuts.fish" = "dev-git"
+"home/.config/fish/conf.d/kitty-restore.fish" = "kitty"
 "home/.config/fish/config.fish" = "base"
 "home/.config/hypr/custom/env.lua" = "base"
 "home/.config/hypr/custom/execs.lua" = "base"
@@ -188,6 +189,7 @@ sudo = true
 "home/.config/hypr/custom/scripts/gpu-usage.py" = "bar-resources"
 "home/.config/hypr/custom/scripts/idle-suspend.sh" = "idle-lid"
 "home/.config/hypr/custom/scripts/idle-wake.sh" = "idle-lid"
+"home/.config/hypr/custom/scripts/kitty-reopen.sh" = "kitty"
 "home/.config/hypr/custom/scripts/lid-keepawake-alert.sh" = "idle-lid"
 "home/.config/hypr/custom/scripts/restore-cover/shell.qml" = "session-restore"
 "home/.config/hypr/custom/scripts/session-restore.py" = "session-restore"
@@ -201,6 +203,7 @@ sudo = true
 "home/.config/hypr/custom/systemd/hypr-session-save.timer" = "session-restore"
 "home/.config/hypr/hypridle.conf" = "idle-lid"
 "home/.config/hypr/hyprlock.conf" = "lockscreen"
+"home/.config/kitty/closed_watcher.py" = "kitty"
 "home/.config/kitty/kitty.conf" = "kitty"
 "home/.config/nvim/init.vim" = "nvim-vim"
 "home/.config/nvim/lazy-lock.json" = "nvim-vim"
