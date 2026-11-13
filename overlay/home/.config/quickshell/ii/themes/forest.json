@@ -4,6 +4,8 @@
     "order": 10,
     "mode": "dark",
     "seed": "#2D6A4F",
+    "wallpaper": "wallpapers/forest.jpg",
+    "decor": "leaves",
     "swatch": ["#081C15", "#2D6A4F", "#52B788", "#B7E4C7", "#E9C46A"],
     "colors": {
         "background": "#081C15",

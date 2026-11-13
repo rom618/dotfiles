@@ -98,7 +98,7 @@ desktop = true
 packages = { arch = ["python"], ubuntu = ["python3"] }
 
 [module.bar-themes]
-description = "Bar: a palette button to switch the theme: Dark and White (from the wallpaper), Forest, Arctic and Mint (fixed palettes with a dark terminal, one JSON file each in quickshell/ii/themes)"
+description = "Bar: a palette button to switch the theme: Dark and White (from your wallpaper), Midnight, Forest, Arctic and Mint (each with its own wallpaper, a dark terminal and stars, leaves, snow or bubbles drifting over the wallpaper)"
 default = true
 desktop = true
 
@@ -223,6 +223,7 @@ sudo = true
 "home/.config/quickshell/ii/modules/common/Persistent.qml" = "base"
 "home/.config/quickshell/ii/modules/common/widgets/NotificationGroup.qml" = "notifications-click"
 "home/.config/quickshell/ii/modules/common/widgets/NotificationItem.qml" = "notifications-click"
+"home/.config/quickshell/ii/modules/ii/background/ThemeDecor.qml" = "bar-themes"
 "home/.config/quickshell/ii/modules/ii/bar/ActiveWindow.qml" = "bar-layout"
 "home/.config/quickshell/ii/modules/ii/bar/BarContent.qml" = "base"
 "home/.config/quickshell/ii/modules/ii/bar/ClaudeIndicator.qml" = "bar-agent-usage"
@@ -243,6 +244,7 @@ sudo = true
 "home/.config/quickshell/ii/modules/ii/wallpaperSelector/WallpaperSelectorContent.qml" = "base"
 "home/.config/quickshell/ii/modules/settings/GeneralConfig.qml" = "base"
 "home/.config/quickshell/ii/modules/settings/QuickConfig.qml" = "base"
+"home/.config/quickshell/ii/panelFamilies/IllogicalImpulseFamily.qml" = "base"
 "home/.config/quickshell/ii/scripts/ai/gemini-categorize-wallpaper.sh" = "base"
 "home/.config/quickshell/ii/scripts/claude/claude-windows.py" = "bar-agent-usage"
 "home/.config/quickshell/ii/scripts/colors/apply-theme.py" = "bar-themes"
@@ -265,7 +267,13 @@ sudo = true
 "home/.config/quickshell/ii/services/ai/OpenAiApiStrategy.qml" = "ai-sidebar-extras"
 "home/.config/quickshell/ii/themes/arctic.json" = "bar-themes"
 "home/.config/quickshell/ii/themes/forest.json" = "bar-themes"
+"home/.config/quickshell/ii/themes/midnight.json" = "bar-themes"
 "home/.config/quickshell/ii/themes/mint.json" = "bar-themes"
+"home/.config/quickshell/ii/themes/wallpapers/arctic.jpg" = "bar-themes"
+"home/.config/quickshell/ii/themes/wallpapers/forest.jpg" = "bar-themes"
+"home/.config/quickshell/ii/themes/wallpapers/make-wallpapers.py" = "bar-themes"
+"home/.config/quickshell/ii/themes/wallpapers/midnight.jpg" = "bar-themes"
+"home/.config/quickshell/ii/themes/wallpapers/mint.jpg" = "bar-themes"
 "home/.config/quickshell/ii/welcome.qml" = "base"
 "home/.ideavimrc" = "nvim-vim"
 "home/.vimrc" = "nvim-vim"

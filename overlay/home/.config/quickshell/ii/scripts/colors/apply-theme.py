@@ -11,6 +11,9 @@ HERE = Path(__file__).resolve().parent
 THEMES = HERE.parent.parent / "themes"
 STATE = Path(os.environ.get("XDG_STATE_HOME") or Path.home() / ".local" / "state") / "quickshell" / "user" / "generated"
 STATE_FILE = STATE / "theme.json"
+WALL_FILE = STATE / "theme-wallpaper.json"
+SHELL_CONFIG = Path(os.environ.get("XDG_CONFIG_HOME") or Path.home() / ".config") / "illogical-impulse" / "config.json"
+WALLPAPERS = THEMES / "wallpapers"
 HEX = re.compile(r"^#[0-9A-Fa-f]{6}$")
 
 BUILTIN = [
@@ -64,6 +67,39 @@ def wait_applycolor(timeout=10.0):
         time.sleep(0.05)
 
 
+def set_wallpaper(path, mode):
+    subprocess.run([str(HERE / "switchwall.sh"), "--image", str(path), "--mode", mode], check=True,
+                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+
+def current_wallpaper():
+    try:
+        return json.loads(SHELL_CONFIG.read_text()).get("background", {}).get("wallpaperPath") or ""
+    except (OSError, ValueError):
+        return ""
+
+
+def is_theme_wallpaper(path):
+    try:
+        return bool(path) and Path(path).resolve().parent == WALLPAPERS.resolve()
+    except OSError:
+        return False
+
+
+def remember_wallpaper():
+    current = current_wallpaper()
+    if current and not is_theme_wallpaper(current):
+        write_atomic(WALL_FILE, json.dumps({"previous": current}) + "\n")
+
+
+def previous_wallpaper():
+    try:
+        prev = json.loads(WALL_FILE.read_text()).get("previous") or ""
+    except (OSError, ValueError):
+        return ""
+    return prev if prev and Path(prev).exists() else ""
+
+
 def write_atomic(path, text):
     tmp = path.with_name(path.name + ".tmp")
     tmp.write_text(text)
@@ -114,13 +150,24 @@ def kitty_overrides(values):
 def apply(key):
     builtin = {b["key"]: b for b in BUILTIN}
     if key in builtin:
-        switchwall("--mode", builtin[key]["mode"], "--type", "auto", "--color", "clear")
+        mode = builtin[key]["mode"]
+        prev = previous_wallpaper()
         STATE_FILE.unlink(missing_ok=True)
+        if prev and is_theme_wallpaper(current_wallpaper()):
+            set_wallpaper(prev, mode)
+        switchwall("--mode", mode, "--type", "auto", "--color", "clear")
         return
     t = load(key)
-    switchwall("--mode", t.get("mode", "dark"), "--type", "scheme-tonal-spot", "--color", t["seed"])
+    mode = t.get("mode", "dark")
+    wallpaper = THEMES / t["wallpaper"] if t.get("wallpaper") else None
+    if wallpaper and wallpaper.is_file():
+        remember_wallpaper()
+        if Path(current_wallpaper() or "/").resolve() != wallpaper.resolve():
+            set_wallpaper(wallpaper, mode)
+    switchwall("--mode", mode, "--type", "scheme-tonal-spot", "--color", t["seed"])
     override(t)
-    write_atomic(STATE_FILE, json.dumps({"theme": key, "background": t.get("colors", {}).get("background", "").lower()}) + "\n")
+    write_atomic(STATE_FILE, json.dumps({"theme": key, "decor": t.get("decor", ""),
+                                         "background": t.get("colors", {}).get("background", "").lower()}) + "\n")
 
 
 def main():

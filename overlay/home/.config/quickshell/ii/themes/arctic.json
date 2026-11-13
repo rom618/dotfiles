@@ -4,6 +4,8 @@
     "order": 20,
     "mode": "light",
     "seed": "#61A5C2",
+    "wallpaper": "wallpapers/arctic.jpg",
+    "decor": "snow",
     "swatch": ["#013A63", "#2A6F97", "#61A5C2", "#A9D6E5", "#5E60CE"],
     "colors": {
         "background": "#CAE9F5",
