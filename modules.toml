@@ -1,7 +1,7 @@
 end4_commit = "42d0aae17b744a38cd05c9044c189bfc9b13869a"
 
 [module.base]
-description = "Fixes on top of end-4: per-user temp folders, weather retry, shared config keys; no anime image boards"
+description = "Fixes on top of end-4: per-user temp folders, weather retry, shared config keys, shadow render power for Hyprland 0.57; no anime image boards"
 default = true
 desktop = true
 remove = [".config/quickshell/ii/modules/ii/sidebarLeft/Anime.qml", ".config/quickshell/ii/modules/ii/sidebarLeft/anime", ".config/quickshell/ii/services/Booru.qml", ".config/quickshell/ii/services/BooruResponseData.qml", ".config/quickshell/ii/scripts/colors/random/random_konachan_wall.sh", ".config/quickshell/ii/defaults/ai/prompts/ii-Imouto.md"]
@@ -202,6 +202,7 @@ sudo = true
 "home/.config/hypr/custom/systemd/hypr-session-save.service" = "session-restore"
 "home/.config/hypr/custom/systemd/hypr-session-save.timer" = "session-restore"
 "home/.config/hypr/hypridle.conf" = "idle-lid"
+"home/.config/hypr/hyprland/general.lua" = "base"
 "home/.config/hypr/hyprlock.conf" = "lockscreen"
 "home/.config/kitty/closed_watcher.py" = "kitty"
 "home/.config/kitty/kitty.conf" = "kitty"
