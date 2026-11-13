@@ -1,0 +1,10 @@
+[Unit]
+Description=Snapshot the Hyprland session every minute
+
+[Timer]
+OnActiveSec=2min
+OnUnitActiveSec=1min
+AccuracySec=10s
+
+[Install]
+WantedBy=timers.target

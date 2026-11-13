@@ -1,0 +1,263 @@
+end4_commit = "42d0aae17b744a38cd05c9044c189bfc9b13869a"
+
+[module.base]
+description = "Fixes on top of end-4: per-user temp folders, weather retry, shared config keys; no anime image boards"
+default = true
+desktop = true
+remove = [".config/quickshell/ii/modules/ii/sidebarLeft/Anime.qml", ".config/quickshell/ii/modules/ii/sidebarLeft/anime", ".config/quickshell/ii/services/Booru.qml", ".config/quickshell/ii/services/BooruResponseData.qml", ".config/quickshell/ii/scripts/colors/random/random_konachan_wall.sh", ".config/quickshell/ii/defaults/ai/prompts/ii-Imouto.md"]
+
+[module.display-input]
+description = "Monitor layout and scale, keyboard layouts, layout switch on SUPER+Space"
+default = true
+desktop = true
+packages = { arch = ["jq", "libnotify"], ubuntu = ["jq", "libnotify-bin"] }
+
+[module.keybinds]
+description = "SUPER+SHIFT+N moves a window to workspace N; SUPER+ALT+N and Print unbound"
+default = true
+desktop = true
+
+[module.window-rules]
+description = "A fullscreen window leaves fullscreen when a second window joins its workspace"
+default = true
+desktop = true
+
+[module.session-restore]
+description = "Saves the open windows every few minutes and reopens them at login"
+default = true
+desktop = true
+packages = { arch = ["python"], ubuntu = ["python3"] }
+user_units = ["hypr-session-save.service", "hypr-session-save.timer"]
+enable = ["hypr-session-save.timer"]
+
+[module.idle-lid]
+description = "Idle lock and suspend, wake handling, an alert when the lid is closed while kept awake"
+default = true
+desktop = true
+packages = { arch = ["jq", "wireplumber"], ubuntu = ["jq", "wireplumber"] }
+
+[module.lockscreen]
+description = "hyprlock style: blurred wallpaper, clock and fields placed for a laptop screen"
+default = true
+desktop = true
+
+[module.ssh-agent]
+description = "One ssh-agent per session, keys loaded at login with passphrases from the keyring"
+default = true
+desktop = true
+packages = { arch = ["openssh", "libsecret"], ubuntu = ["openssh-client", "libsecret-tools"] }
+enable_system_user_units = ["ssh-agent.socket"]
+
+[module.clipboard-wipe]
+description = "Clears the clipboard history on a timer"
+default = false
+desktop = true
+packages = { arch = ["cliphist"], ubuntu = ["cliphist"] }
+user_units = ["clipboard-wipe.service", "clipboard-wipe.timer"]
+enable = ["clipboard-wipe.timer"]
+
+[module.cheatsheet-extras]
+description = "Cheatsheet: an Aliases tab listing your fish aliases, Esc closes it"
+default = true
+desktop = true
+
+[module.fish-aliases]
+description = "eza based ls, ll, tree; reload, clear, renametab, rot13, fishrc, keybinds; ~/.local/bin in PATH"
+default = true
+desktop = false
+packages = { arch = ["fish", "eza"], ubuntu = ["fish", "eza"] }
+
+[module.kitty]
+description = "kitty: translucent, Ctrl+C copies or interrupts, Ctrl+Shift+V pastes, live theme recolor"
+default = true
+desktop = false
+packages = { arch = ["kitty"], ubuntu = ["kitty"] }
+
+[module.nvim-vim]
+description = "Neovim and Vim config, IdeaVim config, the nv alias, nvim as SUDO_EDITOR"
+default = false
+desktop = false
+packages = { arch = ["neovim", "vim"], ubuntu = ["neovim", "vim"] }
+
+[module.dev-git]
+description = "Fish helpers: cfmt (clang-format all C/C++), easypush, gtag"
+default = false
+desktop = false
+packages = { arch = ["clang", "git"], ubuntu = ["clang-format", "git"] }
+
+[module.bar-docker]
+description = "Bar: running Docker containers with a popup"
+default = true
+desktop = true
+
+[module.bar-agent-usage]
+description = "Bar: a robot icon, and a badge on workspace icons where a Claude Code agent works, waits for you or is done (read only)"
+default = true
+desktop = true
+packages = { arch = ["python"], ubuntu = ["python3"] }
+
+[module.bar-layout]
+description = "Bar: resources on the right, no brightness scroll, click the window title for the overview"
+default = true
+desktop = true
+
+[module.bar-resources]
+description = "Bar: disk (root and a separate home) and GPU load in the resources popup"
+default = true
+desktop = true
+packages = { arch = ["python"], ubuntu = ["python3"] }
+
+[module.notifications-click]
+description = "A left click on a notification runs its default action"
+default = true
+desktop = true
+
+[module.night-light-sun]
+description = "Night light follows sunset and sunrise from the weather service"
+default = true
+desktop = true
+
+[module.ai-sidebar-extras]
+description = "AI sidebar: thinking on and off, local Ollama models unloaded when idle, shell command tool, assistant name and icon, aiconfig"
+default = true
+desktop = true
+packages = { arch = ["python"], ubuntu = ["python3"] }
+
+[module.ai-key]
+description = "The laptop's AI (Copilot) key opens the notes sidebar (needs the input group)"
+default = false
+desktop = true
+packages = { arch = ["python"], ubuntu = ["python3"] }
+user_units = ["ai-key-listener.service"]
+enable = ["ai-key-listener.service"]
+
+[module.io-accounting]
+description = "systemd counts disk writes per service (system and user managers)"
+default = true
+desktop = false
+sudo = true
+
+[module.docker-image-prune]
+description = "Removes untagged Docker images older than 6 hours, every 6 hours"
+default = true
+desktop = false
+sudo = true
+needs_command = "docker"
+system_enable = ["docker-image-prune.timer"]
+
+[module.paccache-keep]
+description = "Weekly pacman cache cleanup keeping 2 versions"
+default = true
+desktop = false
+sudo = true
+os = ["arch"]
+packages = { arch = ["pacman-contrib"] }
+system_enable = ["paccache.timer"]
+
+[module.sddm-theme]
+description = "SilentSDDM login screen with its config"
+default = false
+desktop = true
+sudo = true
+packages = { arch = ["sddm", "rsync", "git"], ubuntu = ["sddm", "rsync", "git"] }
+
+[module.power-button]
+description = "The power button no longer powers off; lid close policy"
+default = false
+desktop = false
+sudo = true
+
+[module.multi-user]
+description = "One shared checkout for several accounts, a group with write access, each account linking itself"
+default = false
+desktop = false
+sudo = true
+
+[files]
+"home/.config/fish/conf.d/dev-shortcuts.fish" = "dev-git"
+"home/.config/fish/config.fish" = "base"
+"home/.config/hypr/custom/env.lua" = "base"
+"home/.config/hypr/custom/execs.lua" = "base"
+"home/.config/hypr/custom/general.lua" = "display-input"
+"home/.config/hypr/custom/keybinds.lua" = "base"
+"home/.config/hypr/custom/rules.lua" = "base"
+"home/.config/hypr/custom/scripts/ai-config.py" = "ai-sidebar-extras"
+"home/.config/hypr/custom/scripts/ai-key-listener.py" = "ai-key"
+"home/.config/hypr/custom/scripts/change-kb-layout.sh" = "display-input"
+"home/.config/hypr/custom/scripts/clipboard-wipe.sh" = "clipboard-wipe"
+"home/.config/hypr/custom/scripts/gpu-usage.py" = "bar-resources"
+"home/.config/hypr/custom/scripts/idle-suspend.sh" = "idle-lid"
+"home/.config/hypr/custom/scripts/idle-wake.sh" = "idle-lid"
+"home/.config/hypr/custom/scripts/lid-keepawake-alert.sh" = "idle-lid"
+"home/.config/hypr/custom/scripts/restore-cover/shell.qml" = "session-restore"
+"home/.config/hypr/custom/scripts/session-restore.py" = "session-restore"
+"home/.config/hypr/custom/scripts/session-save.py" = "session-restore"
+"home/.config/hypr/custom/scripts/ssh-askpass-keyring.sh" = "ssh-agent"
+"home/.config/hypr/custom/scripts/ssh-keys-load.sh" = "ssh-agent"
+"home/.config/hypr/custom/systemd/ai-key-listener.service" = "ai-key"
+"home/.config/hypr/custom/systemd/clipboard-wipe.service" = "clipboard-wipe"
+"home/.config/hypr/custom/systemd/clipboard-wipe.timer" = "clipboard-wipe"
+"home/.config/hypr/custom/systemd/hypr-session-save.service" = "session-restore"
+"home/.config/hypr/custom/systemd/hypr-session-save.timer" = "session-restore"
+"home/.config/hypr/hypridle.conf" = "idle-lid"
+"home/.config/hypr/hyprlock.conf" = "lockscreen"
+"home/.config/kitty/kitty.conf" = "kitty"
+"home/.config/nvim/init.vim" = "nvim-vim"
+"home/.config/nvim/lazy-lock.json" = "nvim-vim"
+"home/.config/nvim/lua/myconfig.lua" = "nvim-vim"
+"home/.config/quickshell/ii/assets/icons/claude-symbolic.svg" = "bar-agent-usage"
+"home/.config/quickshell/ii/modules/common/Appearance.qml" = "base"
+"home/.config/quickshell/ii/modules/common/Config.qml" = "base"
+"home/.config/quickshell/ii/modules/common/Directories.qml" = "base"
+"home/.config/quickshell/ii/modules/common/Persistent.qml" = "base"
+"home/.config/quickshell/ii/modules/common/widgets/NotificationGroup.qml" = "notifications-click"
+"home/.config/quickshell/ii/modules/common/widgets/NotificationItem.qml" = "notifications-click"
+"home/.config/quickshell/ii/modules/ii/bar/ActiveWindow.qml" = "bar-layout"
+"home/.config/quickshell/ii/modules/ii/bar/BarContent.qml" = "base"
+"home/.config/quickshell/ii/modules/ii/bar/ClaudeIndicator.qml" = "bar-agent-usage"
+"home/.config/quickshell/ii/modules/ii/bar/DockerIndicator.qml" = "bar-docker"
+"home/.config/quickshell/ii/modules/ii/bar/DockerPopup.qml" = "bar-docker"
+"home/.config/quickshell/ii/modules/ii/bar/LeftSidebarButton.qml" = "base"
+"home/.config/quickshell/ii/modules/ii/bar/Media.qml" = "bar-layout"
+"home/.config/quickshell/ii/modules/ii/bar/Resources.qml" = "bar-layout"
+"home/.config/quickshell/ii/modules/ii/bar/ResourcesPopup.qml" = "bar-resources"
+"home/.config/quickshell/ii/modules/ii/bar/SysTray.qml" = "bar-layout"
+"home/.config/quickshell/ii/modules/ii/bar/Workspaces.qml" = "bar-agent-usage"
+"home/.config/quickshell/ii/modules/ii/cheatsheet/Cheatsheet.qml" = "cheatsheet-extras"
+"home/.config/quickshell/ii/modules/ii/cheatsheet/CheatsheetAliases.qml" = "cheatsheet-extras"
+"home/.config/quickshell/ii/modules/ii/sidebarLeft/AiChat.qml" = "ai-sidebar-extras"
+"home/.config/quickshell/ii/modules/ii/sidebarLeft/SidebarLeftContent.qml" = "base"
+"home/.config/quickshell/ii/modules/ii/sidebarLeft/aiChat/AiMessage.qml" = "ai-sidebar-extras"
+"home/.config/quickshell/ii/modules/ii/wallpaperSelector/WallpaperSelectorContent.qml" = "base"
+"home/.config/quickshell/ii/modules/settings/GeneralConfig.qml" = "base"
+"home/.config/quickshell/ii/modules/settings/QuickConfig.qml" = "base"
+"home/.config/quickshell/ii/scripts/ai/gemini-categorize-wallpaper.sh" = "base"
+"home/.config/quickshell/ii/scripts/claude/claude-windows.py" = "bar-agent-usage"
+"home/.config/quickshell/ii/scripts/colors/applycolor.sh" = "kitty"
+"home/.config/quickshell/ii/services/Ai.qml" = "ai-sidebar-extras"
+"home/.config/quickshell/ii/services/Brightness.qml" = "base"
+"home/.config/quickshell/ii/services/ClaudeWindows.qml" = "bar-agent-usage"
+"home/.config/quickshell/ii/services/Docker.qml" = "bar-docker"
+"home/.config/quickshell/ii/services/FishAliases.qml" = "cheatsheet-extras"
+"home/.config/quickshell/ii/services/Hyprsunset.qml" = "night-light-sun"
+"home/.config/quickshell/ii/services/LauncherSearch.qml" = "base"
+"home/.config/quickshell/ii/services/Notifications.qml" = "notifications-click"
+"home/.config/quickshell/ii/services/ResourceUsage.qml" = "bar-resources"
+"home/.config/quickshell/ii/services/Weather.qml" = "base"
+"home/.config/quickshell/ii/services/ai/AiModel.qml" = "ai-sidebar-extras"
+"home/.config/quickshell/ii/services/ai/ApiStrategy.qml" = "ai-sidebar-extras"
+"home/.config/quickshell/ii/services/ai/GeminiApiStrategy.qml" = "ai-sidebar-extras"
+"home/.config/quickshell/ii/services/ai/OpenAiApiStrategy.qml" = "ai-sidebar-extras"
+"home/.config/quickshell/ii/welcome.qml" = "base"
+"home/.ideavimrc" = "nvim-vim"
+"home/.vimrc" = "nvim-vim"
+"root/etc/sddm.conf" = "sddm-theme"
+"root/etc/sddm.conf.d/theme.conf" = "sddm-theme"
+"root/etc/systemd/logind.conf.d/lid.conf" = "power-button"
+"root/etc/systemd/logind.conf.d/power-button.conf" = "power-button"
+"root/etc/systemd/system.conf.d/io-accounting.conf" = "io-accounting"
+"root/etc/systemd/system/docker-image-prune.service" = "docker-image-prune"
+"root/etc/systemd/system/docker-image-prune.timer" = "docker-image-prune"
+"root/etc/systemd/system/paccache.service.d/keep.conf" = "paccache-keep"
+"root/etc/systemd/user.conf.d/io-accounting.conf" = "io-accounting"
+"root/usr/share/sddm/themes/silent/configs/default.conf" = "sddm-theme"

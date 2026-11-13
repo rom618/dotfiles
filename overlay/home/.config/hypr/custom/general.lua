@@ -1,0 +1,10 @@
+
+hl.config({
+    input = {
+kb_layout = "us",
+kb_variant = "",
+        touchpad = {
+            natural_scroll = false,
+        },
+    },
+})

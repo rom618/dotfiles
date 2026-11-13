@@ -1,0 +1,10 @@
+[Unit]
+Description=Wipe the clipboard history every day at 8:00, or at the next login or wake if 8:00 was missed
+
+[Timer]
+OnCalendar=*-*-* 08:00:00
+Persistent=true
+AccuracySec=1min
+
+[Install]
+WantedBy=timers.target

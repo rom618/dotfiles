@@ -1,0 +1,206 @@
+pragma Singleton
+pragma ComponentBehavior: Bound
+
+import qs.modules.common
+import qs.modules.common.functions
+import QtQuick
+import Quickshell
+import Quickshell.Io
+
+/**
+ * Simple polled resource usage service with RAM, Swap, and CPU usage.
+ */
+Singleton {
+    id: root
+	property real memoryTotal: 1
+	property real memoryFree: 0
+	property real memoryUsed: memoryTotal - memoryFree
+    property real memoryUsedPercentage: memoryUsed / memoryTotal
+    property real swapTotal: 1
+	property real swapFree: 0
+	property real swapUsed: swapTotal - swapFree
+    property real swapUsedPercentage: swapTotal > 0 ? (swapUsed / swapTotal) : 0
+    property real cpuUsage: 0
+    property var previousCpuStats
+
+    property bool gpuAvailable: false
+    property real gpuUsage: 0
+
+    property real diskTotal: 1
+	property real diskFree: 0
+	property real diskUsed: diskTotal - diskFree
+    property real diskUsedPercentage: diskUsed / diskTotal
+
+    property bool homeIsSeparateDisk: false
+    property real homeDiskTotal: 1
+	property real homeDiskFree: 0
+	property real homeDiskUsed: homeDiskTotal - homeDiskFree
+    property real homeDiskUsedPercentage: homeDiskUsed / homeDiskTotal
+
+    property real combinedDiskTotal: diskTotal + (homeIsSeparateDisk ? homeDiskTotal : 0)
+    property real combinedDiskFree: diskFree + (homeIsSeparateDisk ? homeDiskFree : 0)
+    property real combinedDiskUsed: combinedDiskTotal - combinedDiskFree
+    property real combinedDiskUsedPercentage: combinedDiskUsed / combinedDiskTotal
+
+    property string maxAvailableMemoryString: kbToGbString(ResourceUsage.memoryTotal)
+    property string maxAvailableSwapString: kbToGbString(ResourceUsage.swapTotal)
+    property string maxAvailableCpuString: "--"
+
+    readonly property int historyLength: Config?.options.resources.historyLength ?? 60
+    property list<real> cpuUsageHistory: []
+    property list<real> memoryUsageHistory: []
+    property list<real> swapUsageHistory: []
+
+    function kbToGbString(kb) {
+        // Dividing by 1024*1024 (binary) makes this GiB, not GB - label it as such
+        return (kb / (1024 * 1024)).toFixed(1) + " GiB";
+    }
+
+    function updateMemoryUsageHistory() {
+        memoryUsageHistory = [...memoryUsageHistory, memoryUsedPercentage]
+        if (memoryUsageHistory.length > historyLength) {
+            memoryUsageHistory.shift()
+        }
+    }
+    function updateSwapUsageHistory() {
+        swapUsageHistory = [...swapUsageHistory, swapUsedPercentage]
+        if (swapUsageHistory.length > historyLength) {
+            swapUsageHistory.shift()
+        }
+    }
+    function updateCpuUsageHistory() {
+        cpuUsageHistory = [...cpuUsageHistory, cpuUsage]
+        if (cpuUsageHistory.length > historyLength) {
+            cpuUsageHistory.shift()
+        }
+    }
+    function updateHistories() {
+        updateMemoryUsageHistory()
+        updateSwapUsageHistory()
+        updateCpuUsageHistory()
+    }
+
+	Timer {
+		interval: 1
+        running: true 
+        repeat: true
+		onTriggered: {
+            // Reload files
+            fileMeminfo.reload()
+            fileStat.reload()
+
+            // Parse memory and swap usage
+            const textMeminfo = fileMeminfo.text()
+            memoryTotal = Number(textMeminfo.match(/MemTotal: *(\d+)/)?.[1] ?? 1)
+            memoryFree = Number(textMeminfo.match(/MemAvailable: *(\d+)/)?.[1] ?? 0)
+            swapTotal = Number(textMeminfo.match(/SwapTotal: *(\d+)/)?.[1] ?? 1)
+            swapFree = Number(textMeminfo.match(/SwapFree: *(\d+)/)?.[1] ?? 0)
+
+            // Parse CPU usage
+            const textStat = fileStat.text()
+            const cpuLine = textStat.match(/^cpu\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)/)
+            if (cpuLine) {
+                const stats = cpuLine.slice(1).map(Number)
+                const total = stats.reduce((a, b) => a + b, 0)
+                const idle = stats[3]
+
+                if (previousCpuStats) {
+                    const totalDiff = total - previousCpuStats.total
+                    const idleDiff = idle - previousCpuStats.idle
+                    cpuUsage = totalDiff > 0 ? (1 - idleDiff / totalDiff) : 0
+                }
+
+                previousCpuStats = { total, idle }
+            }
+
+            root.updateHistories()
+            interval = Config.options?.resources?.updateInterval ?? 3000
+        }
+	}
+
+	FileView { id: fileMeminfo; path: "/proc/meminfo" }
+    FileView { id: fileStat; path: "/proc/stat" }
+
+    Timer {
+        interval: Config.options?.resources?.diskUpdateInterval ?? 60000
+        running: true
+        repeat: true
+        triggeredOnStart: true
+        onTriggered: diskUsageProc.running = true
+    }
+
+    Process {
+        id: diskUsageProc
+        command: ["bash", "-c", "df -k --output=target,size,avail / \"$HOME\" | tail -n +2"]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                const lines = text.trim().split("\n").filter(l => l.length > 0)
+                if (lines.length === 0) return
+                const rootParts = lines[0].trim().split(/\s+/)
+                if (rootParts.length === 3) {
+                    root.diskTotal = Number(rootParts[1])
+                    root.diskFree = Number(rootParts[2])
+                }
+                if (lines.length > 1) {
+                    const homeParts = lines[1].trim().split(/\s+/)
+                    root.homeIsSeparateDisk = homeParts[0] !== rootParts[0]
+                    if (root.homeIsSeparateDisk && homeParts.length === 3) {
+                        root.homeDiskTotal = Number(homeParts[1])
+                        root.homeDiskFree = Number(homeParts[2])
+                    }
+                } else {
+                    root.homeIsSeparateDisk = false
+                }
+            }
+        }
+    }
+
+    Process {
+        id: findCpuMaxFreqProc
+        environment: ({
+            LANG: "C",
+            LC_ALL: "C"
+        })
+        command: ["bash", "-c", "lscpu | grep 'CPU max MHz' | awk '{print $4}'"]
+        running: true
+        stdout: StdioCollector {
+            id: outputCollector
+            onStreamFinished: {
+                root.maxAvailableCpuString = (parseFloat(outputCollector.text) / 1000).toFixed(0) + " GHz"
+            }
+        }
+    }
+
+    readonly property string gpuScriptPath: `${FileUtils.trimFileProtocol(Directories.home)}/.config/hypr/custom/scripts/gpu-usage.py`
+
+    Process {
+        id: checkGpuToolProc
+        command: ["bash", "-c", `command -v python3 >/dev/null 2>&1 && test -f "${root.gpuScriptPath}"`]
+        running: true
+        onExited: (exitCode, exitStatus) => {
+            root.gpuAvailable = (exitCode === 0)
+        }
+    }
+
+    Timer {
+        interval: Config.options?.resources?.updateInterval ?? 3000
+        running: root.gpuAvailable
+        repeat: true
+        triggeredOnStart: true
+        onTriggered: gpuUsageProc.running = true
+    }
+
+    Process {
+        id: gpuUsageProc
+        // Reads /proc/*/fdinfo drm-cycles-rcs counters (xe/amdgpu), diffed
+        // over a short delay - see config/hypr/custom/scripts/gpu-usage.py. Verified live
+        // against this machine's Intel Xe iGPU.
+        command: ["python3", root.gpuScriptPath]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                const value = parseFloat(text)
+                root.gpuUsage = isNaN(value) ? 0 : (value / 100)
+            }
+        }
+    }
+}

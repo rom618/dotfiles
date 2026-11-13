@@ -1,0 +1,10 @@
+[Unit]
+Description=Removal of untagged Docker images every 6 hours
+
+[Timer]
+OnCalendar=00/6:00
+Persistent=true
+RandomizedDelaySec=15min
+
+[Install]
+WantedBy=timers.target

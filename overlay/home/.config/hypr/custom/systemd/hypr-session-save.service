@@ -1,0 +1,6 @@
+[Unit]
+Description=Snapshot the Hyprland window layout, kitty tabs and Claude sessions for the next login
+
+[Service]
+Type=oneshot
+ExecStart=%h/.config/hypr/custom/scripts/session-save.py

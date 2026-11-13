@@ -1,0 +1,9 @@
+[Unit]
+Description=Remove untagged Docker images older than 6 hours and build cache older than 3 days
+Requires=docker.service
+After=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/docker image prune -f --filter until=6h
+ExecStart=/usr/bin/docker builder prune -f --filter until=72h

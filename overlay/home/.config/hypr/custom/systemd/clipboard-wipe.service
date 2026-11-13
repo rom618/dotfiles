@@ -1,0 +1,6 @@
+[Unit]
+Description=Wipe the clipboard history (Super+V)
+
+[Service]
+Type=oneshot
+ExecStart=%h/.config/hypr/custom/scripts/clipboard-wipe.sh
