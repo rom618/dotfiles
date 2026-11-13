@@ -69,8 +69,21 @@ def norm_title(title):
     return re.sub(r"^[^0-9A-Za-z~/.]+", "", title or "").strip()
 
 
-def is_claude(cmdline):
-    return any(os.path.basename(a) == "claude" for a in (cmdline or [])[:2])
+AGENTS = {"claude": "claude", "pi": "pi", "codex": "codex", "codex.js": "codex"}
+
+
+def agent_of(cmdline):
+    for a in (cmdline or [])[:2]:
+        name = AGENTS.get(os.path.basename(a))
+        if name:
+            return name
+        if "pi-coding-agent" in a:
+            return "pi"
+        if "@anthropic-ai/claude-code" in a:
+            return "claude"
+        if "@openai/codex" in a:
+            return "codex"
+    return None
 
 
 def started_at(pid):
@@ -81,9 +94,10 @@ def started_at(pid):
 
 
 def window_state(kitty_pid, win):
-    procs = [p for p in win.get("foreground_processes") or [] if is_claude(p.get("cmdline"))]
+    procs = [p for p in win.get("foreground_processes") or [] if agent_of(p.get("cmdline"))]
     if not procs:
         return None
+    agent = agent_of(procs[0].get("cmdline"))
     hook = session = None
     path = STATE_DIR / f"{kitty_pid}-{win.get('id')}"
     try:
@@ -94,6 +108,8 @@ def window_state(kitty_pid, win):
             hook = (st.st_mtime, state)
     except OSError:
         pass
+    if agent != "claude":
+        return (hook[1], agent) if hook else None
     try:
         data = json.loads((CLAUDE_SESSIONS / f"{procs[0].get('pid')}.json").read_text())
         status = data.get("status")
@@ -102,19 +118,19 @@ def window_state(kitty_pid, win):
     except (OSError, ValueError, AttributeError, TypeError):
         pass
     if hook and session:
-        return max(hook, session)[1]
+        return max(hook, session)[1], agent
     if hook or session:
-        return (hook or session)[1]
-    return "done" if (win.get("title") or "").startswith(chr(0x2733)) else "running"
+        return (hook or session)[1], agent
+    return ("done" if (win.get("title") or "").startswith(chr(0x2733)) else "running"), agent
 
 
 def os_window_state(kitty_pid, osw):
     best = None
     for tab in osw.get("tabs", []):
         for win in tab.get("windows", []):
-            state = window_state(kitty_pid, win)
-            if state and (best is None or RANK[state] > RANK[best]):
-                best = state
+            found = window_state(kitty_pid, win)
+            if found and (best is None or RANK[found[0]] > RANK[best[0]]):
+                best = found
     return best
 
 
@@ -149,13 +165,13 @@ def snapshot():
     for c in hypr_clients():
         if c.get("class") == "kitty" and c.get("pid", 0) > 0:
             by_pid.setdefault(c["pid"], []).append(c)
-    result = {}
+    states, agents = {}, {}
     for pid, group in by_pid.items():
         for client, osw in match(group, kitty_ls(pid)):
-            state = os_window_state(pid, osw)
-            if state:
-                result[client["address"]] = state
-    return result
+            found = os_window_state(pid, osw)
+            if found:
+                states[client["address"]], agents[client["address"]] = found
+    return {"states": states, "agents": agents}
 
 
 def main():

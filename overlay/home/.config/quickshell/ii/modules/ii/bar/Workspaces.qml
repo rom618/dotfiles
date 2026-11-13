@@ -219,8 +219,10 @@ ButtonMouseArea {
                     property var biggestWindow: wsModel.biggestWindow[index]
                     property bool claudeShown: ClaudeWindows.stateFor(biggestWindow) !== ""
                     property string claudeState: claudeShown ? ClaudeWindows.workspaceState(wsId) : ""
+                    property string agent: claudeShown ? ClaudeWindows.agentFor(biggestWindow) : ""
+                    property bool agentWorking: claudeState === "running" && iconsShown
                     property bool iconsShown: !root.superPressAndHeld && Config.options?.bar.workspaces.showAppIcons && !!biggestWindow
-                    property var mainAppIconSource: claudeShown ? ClaudeWindows.iconPath : Quickshell.iconPath(AppSearch.guessIcon(biggestWindow?.class), "image-missing")
+                    property var mainAppIconSource: claudeShown ? ClaudeWindows.iconFor(biggestWindow) : Quickshell.iconPath(AppSearch.guessIcon(biggestWindow?.class), "image-missing")
 
                     AppIcon {
                         id: appIcon
@@ -258,7 +260,7 @@ ButtonMouseArea {
                         anchors.fill: appIcon
                         rotation: 0
                         RotationAnimation on rotation {
-                            running: wsApp.claudeState === "running"
+                            running: wsApp.claudeState === "running" && wsApp.agent === "claude"
                             from: 0
                             to: 360
                             duration: 3000
@@ -288,6 +290,59 @@ ButtonMouseArea {
                             maskSource: iconMask
                             maskThresholdMin: 0.5
                             maskSpreadAtMin: 1
+                        }
+                    }
+
+                    Item {
+                        id: piOrbit
+                        anchors.centerIn: appIcon
+                        width: appIcon.implicitSize + 6
+                        height: width
+                        visible: wsApp.agentWorking && wsApp.agent === "pi"
+                        rotation: 0
+                        RotationAnimation on rotation {
+                            running: piOrbit.visible
+                            from: 0
+                            to: 360
+                            duration: 1100
+                            loops: Animation.Infinite
+                        }
+                        Repeater {
+                            model: 3
+                            delegate: Rectangle {
+                                required property int index
+                                readonly property real angle: -index * 22 * Math.PI / 180
+                                readonly property real r: piOrbit.width / 2
+                                width: 4 - index
+                                height: width
+                                radius: width / 2
+                                x: piOrbit.width / 2 + r * Math.sin(angle) - width / 2
+                                y: piOrbit.height / 2 - r * Math.cos(angle) - height / 2
+                                color: Appearance.colors.colPrimary
+                                opacity: 1 - index * 0.3
+                            }
+                        }
+                    }
+
+                    Rectangle {
+                        id: codexRipple
+                        property real spread: 1
+                        anchors.centerIn: appIcon
+                        width: appIcon.implicitSize * spread
+                        height: width
+                        radius: width / 2
+                        color: "transparent"
+                        border.width: 1.5
+                        border.color: Appearance.colors.colPrimary
+                        visible: wsApp.agentWorking && wsApp.agent === "codex"
+                        SequentialAnimation {
+                            running: codexRipple.visible
+                            loops: Animation.Infinite
+                            ParallelAnimation {
+                                NumberAnimation { target: codexRipple; property: "spread"; from: 0.9; to: 1.7; duration: 1300; easing.type: Easing.OutCubic }
+                                NumberAnimation { target: codexRipple; property: "opacity"; from: 0.9; to: 0; duration: 1300; easing.type: Easing.OutCubic }
+                            }
+                            PauseAnimation { duration: 200 }
                         }
                     }
 
