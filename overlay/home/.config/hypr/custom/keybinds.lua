@@ -19,10 +19,6 @@ hl.unbind("SUPER + ALT + 0")
 hl.unbind("Print")
 
 -- share:end
--- share:begin lockscreen
-hl.unbind("SUPER + L")
-
--- share:end
 -- share:begin keybinds
 -- Rebind move-to-workspace to SUPER + SHIFT + [0-9]
 for i = 1, 9 do
@@ -57,11 +53,6 @@ hl.unbind("SUPER + Return")
 hl.unbind("SUPER + T")
 hl.bind("SUPER + Return", hl.dsp.exec_cmd("kitty -1"), { description = "App: Terminal (kitty)" })
 hl.bind("SUPER + T", hl.dsp.exec_cmd("kitty -1"))
-
--- share:end
--- share:begin lockscreen
--- Same command as hypridle.conf's $lock_cmd: bare hyprlock, chosen over quickshell's lock on 2026-09-14.
-hl.bind("SUPER + L", hl.dsp.exec_cmd("pidof hyprlock || hyprlock"), { description = "Session: Lock" })
 
 -- share:end
 -- share:begin idle-lid

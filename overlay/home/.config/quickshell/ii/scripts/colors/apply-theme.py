@@ -13,14 +13,18 @@ STATE = Path(os.environ.get("XDG_STATE_HOME") or Path.home() / ".local" / "state
 STATE_FILE = STATE / "theme.json"
 WALL_FILE = STATE / "theme-wallpaper.json"
 CHOICE_FILE = STATE / "theme-choices.json"
+PREFS_FILE = STATE / "theme-prefs.json"
 SHELL_CONFIG = Path(os.environ.get("XDG_CONFIG_HOME") or Path.home() / ".config") / "illogical-impulse" / "config.json"
 WALLPAPERS = Path(os.environ.get("XDG_DATA_HOME") or Path.home() / ".local" / "share") / "quickshell-themes" / "wallpapers"
 HEX = re.compile(r"^#[0-9A-Fa-f]{6}$")
 
+MODES = ("light", "dark")
+PALETTE_GROUPS = ("colors", "terminal", "kitty")
 BUILTIN = [
-    {"key": "dark", "name": "Dark", "icon": "dark_mode", "mode": "dark", "swatch": ["#1C1B1F"], "wallpaper": True},
-    {"key": "white", "name": "White", "icon": "light_mode", "mode": "light", "swatch": ["#F4F1F6"], "wallpaper": True},
+    {"key": "default", "name": "Wallpaper", "icon": "wallpaper", "modes": list(MODES),
+     "swatch": ["#F4F1F6", "#1C1B1F"], "wallpaper": True},
 ]
+ALIASES = {"dark": ("default", "dark"), "white": ("default", "light")}
 
 
 def camel(key):
@@ -32,11 +36,38 @@ def load(key):
     if not re.fullmatch(r"[a-z0-9-]+", key) or not path.is_file():
         raise SystemExit(f"unknown theme: {key}")
     t = json.loads(path.read_text())
-    for group in ("colors", "terminal", "kitty"):
-        for name, value in t.get(group, {}).items():
-            if not HEX.match(value):
-                raise SystemExit(f"{path.name}: {group}.{name} is not #RRGGBB: {value}")
+    sources = [("", t)] + [(f"palettes.{m}.", p) for m, p in (t.get("palettes") or {}).items()]
+    for prefix, src in sources:
+        for group in PALETTE_GROUPS:
+            for name, value in src.get(group, {}).items():
+                if not HEX.match(value):
+                    raise SystemExit(f"{path.name}: {prefix}{group}.{name} is not #RRGGBB: {value}")
     return t
+
+
+def palette(t, mode):
+    pals = t.get("palettes") or {}
+    if mode in pals:
+        return pals[mode]
+    if t.get("mode", "dark") == mode and t.get("colors"):
+        return {g: t[g] for g in PALETTE_GROUPS if g in t}
+    return None
+
+
+def native_modes(t):
+    return [m for m in MODES if palette(t, m)]
+
+
+def preferred_mode():
+    try:
+        mode = json.loads(PREFS_FILE.read_text()).get("mode")
+    except (OSError, ValueError, AttributeError):
+        mode = None
+    if mode in MODES:
+        return mode
+    r = subprocess.run(["gsettings", "get", "org.gnome.desktop.interface", "color-scheme"],
+                       capture_output=True, text=True)
+    return "dark" if "dark" in r.stdout else "light"
 
 
 def themes():
@@ -47,8 +78,7 @@ def themes():
         except (SystemExit, ValueError):
             continue
         found.append({"key": path.stem, "name": t.get("name", path.stem), "icon": t.get("icon", "palette"),
-                      "mode": t.get("mode", "dark"), "swatch": t.get("swatch", []), "order": t.get("order", 100),
-                      "background": t.get("colors", {}).get("background", ""),
+                      "modes": native_modes(t), "swatch": t.get("swatch", []), "order": t.get("order", 100),
                       "wallpapers": len(wallpaper_names(t))})
     found.sort(key=lambda t: (t["order"], t["name"]))
     return BUILTIN + found
@@ -142,6 +172,13 @@ def write_atomic(path, text):
     tmp.replace(path)
 
 
+def current_background():
+    try:
+        return (json.loads((STATE / "colors.json").read_text()).get("background") or "").lower()
+    except (OSError, ValueError, AttributeError):
+        return ""
+
+
 def override(t):
     colors = t.get("colors", {})
     terminal = t.get("terminal", {})
@@ -183,10 +220,13 @@ def kitty_overrides(values):
                            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 
-def apply(key, wallpaper_step=None):
+def apply(key, wallpaper_step=None, mode=None):
+    if key in ALIASES:
+        key, mode = ALIASES[key][0], mode or ALIASES[key][1]
+    if mode not in MODES:
+        mode = preferred_mode()
     builtin = {b["key"]: b for b in BUILTIN}
     if key in builtin:
-        mode = builtin[key]["mode"]
         prev = previous_wallpaper()
         STATE_FILE.unlink(missing_ok=True)
         if prev and is_theme_wallpaper(current_wallpaper()):
@@ -194,7 +234,7 @@ def apply(key, wallpaper_step=None):
         switchwall("--mode", mode, "--type", "auto", "--color", "clear")
         return
     t = load(key)
-    mode = t.get("mode", "dark")
+    pal = palette(t, mode)
     names = wallpaper_names(t)
     choices = load_choices()
     index = int(choices.get(key, 0)) if names else 0
@@ -214,27 +254,39 @@ def apply(key, wallpaper_step=None):
         if Path(current_wallpaper() or "/").resolve() != wallpaper.resolve():
             set_wallpaper(wallpaper, mode)
     switchwall("--mode", mode, "--type", "scheme-tonal-spot", "--color", t["seed"])
-    override(t)
-    write_atomic(STATE_FILE, json.dumps({"theme": key, "decor": t.get("decor", ""), "wallpaper_index": index,
-                                         "wallpapers": len(names),
-                                         "background": t.get("colors", {}).get("background", "").lower()}) + "\n")
+    if pal:
+        override(pal)
+    else:
+        wait_applycolor()
+    write_atomic(STATE_FILE, json.dumps({"theme": key, "mode": mode, "decor": t.get("decor", ""),
+                                         "wallpaper_index": index, "wallpapers": len(names),
+                                         "background": current_background()}) + "\n")
 
 
 def main():
-    if len(sys.argv) == 2 and sys.argv[1] == "--list":
+    args = sys.argv[1:]
+    if args == ["--list"]:
         print(json.dumps(themes()))
         return 0
-    if len(sys.argv) == 2:
-        apply(sys.argv[1])
-        return 0
-    if len(sys.argv) == 3 and sys.argv[2] in ("--next-wallpaper", "--prev-wallpaper"):
-        apply(sys.argv[1], "next" if sys.argv[2] == "--next-wallpaper" else "prev")
-        return 0
-    if len(sys.argv) == 4 and sys.argv[2] == "--wallpaper" and sys.argv[3].isdigit():
-        apply(sys.argv[1], int(sys.argv[3]))
-        return 0
-    print("usage: apply-theme.py --list | THEME [--next-wallpaper | --prev-wallpaper | --wallpaper N]", file=sys.stderr)
-    return 2
+    usage = "usage: apply-theme.py --list | THEME [--mode light|dark] [--next-wallpaper | --prev-wallpaper | --wallpaper N]"
+    if not args or args[0].startswith("-"):
+        print(usage, file=sys.stderr)
+        return 2
+    key, rest = args[0], args[1:]
+    mode = step = None
+    while rest:
+        opt = rest.pop(0)
+        if opt == "--mode" and rest and rest[0] in MODES:
+            mode = rest.pop(0)
+        elif opt in ("--next-wallpaper", "--prev-wallpaper"):
+            step = "next" if opt == "--next-wallpaper" else "prev"
+        elif opt == "--wallpaper" and rest and rest[0].isdigit():
+            step = int(rest.pop(0))
+        else:
+            print(usage, file=sys.stderr)
+            return 2
+    apply(key, step, mode)
+    return 0
 
 
 if __name__ == "__main__":

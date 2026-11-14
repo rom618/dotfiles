@@ -38,7 +38,7 @@ desktop = true
 packages = { arch = ["jq", "wireplumber"], ubuntu = ["jq", "wireplumber"] }
 
 [module.lockscreen]
-description = "hyprlock style: blurred wallpaper, clock and fields placed for a laptop screen"
+description = "Fallback lock style (hyprlock, used only when quickshell is not running): blurred wallpaper, clock and fields placed for a laptop screen"
 default = true
 desktop = true
 

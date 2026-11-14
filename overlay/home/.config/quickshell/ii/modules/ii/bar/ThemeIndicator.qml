@@ -29,7 +29,7 @@ MouseArea {
             return root.applied.theme;
         const accent = Config.options.appearance.palette.accentColor || "";
         if (accent === "")
-            return Appearance.m3colors.darkmode ? "dark" : "white";
+            return "default";
         return "";
     }
 
@@ -37,9 +37,59 @@ MouseArea {
     readonly property bool particlesOn: root.prefs.particles !== false
     readonly property bool hasDecor: !!root.applied.decor && root.applied.theme === root.current
 
+    readonly property string modePref: ["light", "dark", "auto"].includes(root.prefs.mode) ? root.prefs.mode : ""
+    readonly property string currentMode: Appearance.m3colors.darkmode ? "dark" : "light"
+    readonly property string autoMode: Hyprsunset.shouldBeOn ? "dark" : "light"
+    readonly property string wantedMode: root.modePref === "auto" ? root.autoMode : (root.modePref || root.currentMode)
+    property string autoTried: ""
+    property string pendingMode: ""
+
+    function savePrefs(changes) {
+        const next = Object.assign({}, root.prefs, changes);
+        prefsFile.setText(JSON.stringify(next) + "\n");
+        root.prefs = next;
+    }
+
     function setParticles(on) {
-        prefsFile.setText(JSON.stringify({ particles: on }) + "\n");
-        root.prefs = { particles: on };
+        root.savePrefs({ particles: on });
+    }
+
+    function setMode(mode) {
+        if (root.pending !== "")
+            return;
+        root.savePrefs({ mode: mode });
+        root.pendingMode = mode;
+        root.autoTried = "";
+        const target = mode === "auto" ? root.autoMode : mode;
+        if (target !== root.currentMode)
+            root.run("mode", [root.script, root.current || "default", "--mode", target]);
+    }
+
+    function run(tag, command) {
+        root.pending = tag;
+        root.slow = false;
+        slowTimer.restart();
+        giveUpTimer.restart();
+        applyProc.command = command;
+        applyProc.running = true;
+    }
+
+    function syncAuto() {
+        if (root.modePref !== "auto" || root.pending !== "" || root.autoMode === root.currentMode || root.autoTried === root.autoMode)
+            return;
+        root.autoTried = root.autoMode;
+        root.pendingMode = "auto";
+        root.run("mode", [root.script, root.current || "default", "--mode", root.autoMode]);
+    }
+
+    onAutoModeChanged: autoTimer.restart()
+    onModePrefChanged: autoTimer.restart()
+
+    Timer {
+        id: autoTimer
+        interval: 3000
+        running: true
+        onTriggered: root.syncAuto()
     }
 
     FileView {
@@ -62,23 +112,13 @@ MouseArea {
     function stepWallpaper(direction) {
         if (root.pending !== "" || root.wallpaperCount < 2)
             return;
-        root.pending = "wallpaper";
-        root.slow = false;
-        slowTimer.restart();
-        giveUpTimer.restart();
-        applyProc.command = [root.script, root.current, direction > 0 ? "--next-wallpaper" : "--prev-wallpaper"];
-        applyProc.running = true;
+        root.run("wallpaper", [root.script, root.current, direction > 0 ? "--next-wallpaper" : "--prev-wallpaper", "--mode", root.wantedMode]);
     }
 
     function apply(t) {
         if (root.pending !== "" || t.key === root.current)
             return;
-        root.pending = t.key;
-        root.slow = false;
-        slowTimer.restart();
-        giveUpTimer.restart();
-        applyProc.command = [root.script, t.key];
-        applyProc.running = true;
+        root.run(t.key, [root.script, t.key, "--mode", root.wantedMode]);
     }
 
     Process {
@@ -233,6 +273,61 @@ MouseArea {
                         text: root.slow ? "Applying, still working..." : "Theme"
                         font.pixelSize: Appearance.font.pixelSize.small
                         color: Appearance.colors.colSubtext
+                    }
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        Layout.leftMargin: 4
+                        Layout.rightMargin: 4
+                        Layout.bottomMargin: 4
+                        spacing: 4
+
+                        Repeater {
+                            model: [
+                                { key: "light", icon: "light_mode", name: "Light" },
+                                { key: "dark", icon: "dark_mode", name: "Dark" },
+                                { key: "auto", icon: "brightness_auto", name: "Auto" }
+                            ]
+
+                            delegate: RippleButton {
+                                id: modeButton
+                                required property var modelData
+                                readonly property bool active: root.modePref === "auto" ? modelData.key === "auto" : (modelData.key === root.currentMode)
+                                readonly property bool busy: root.pending === "mode" && root.pendingMode === modelData.key
+                                Layout.fillWidth: true
+                                implicitHeight: 30
+                                buttonRadius: Appearance.rounding.full
+                                toggled: active
+                                colBackgroundToggled: Appearance.colors.colSecondaryContainer
+                                colBackgroundToggledHover: Appearance.colors.colSecondaryContainerHover
+                                colRippleToggled: Appearance.colors.colSecondaryContainerActive
+                                enabled: root.pending === ""
+                                onClicked: root.setMode(modelData.key)
+
+                                contentItem: RowLayout {
+                                    spacing: 4
+                                    Item { Layout.fillWidth: true }
+                                    MaterialSymbol {
+                                        visible: !modeButton.busy
+                                        text: modeButton.modelData.icon
+                                        iconSize: Appearance.font.pixelSize.normal
+                                        fill: modeButton.active ? 1 : 0
+                                        color: modeButton.active ? Appearance.colors.colOnSecondaryContainer : Appearance.colors.colOnLayer1
+                                    }
+                                    MaterialLoadingIndicator {
+                                        visible: modeButton.busy
+                                        loading: modeButton.busy
+                                        implicitSize: 16
+                                    }
+                                    StyledText {
+                                        text: modeButton.modelData.name
+                                        font.pixelSize: Appearance.font.pixelSize.small
+                                        color: modeButton.active ? Appearance.colors.colOnSecondaryContainer : Appearance.colors.colOnLayer1
+                                    }
+                                    Item { Layout.fillWidth: true }
+                                }
+                            }
+                        }
                     }
 
                     Repeater {

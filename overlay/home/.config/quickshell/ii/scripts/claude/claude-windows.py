@@ -44,7 +44,7 @@ def hypr_clients():
 
 
 def kitty_ls(pid):
-    msg = json.dumps({"cmd": "ls", "version": [0, 48, 2], "no_response": False}).encode()
+    msg = json.dumps({"cmd": "ls", "version": [0, 14, 2], "no_response": False}).encode()
     try:
         with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
             s.settimeout(2)
