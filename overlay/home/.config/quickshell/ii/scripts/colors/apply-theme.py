@@ -84,8 +84,9 @@ def themes():
     return BUILTIN + found
 
 
-def switchwall(*args):
-    subprocess.run([str(HERE / "switchwall.sh"), "--noswitch", *args], check=True,
+def switchwall(*args, skip_applycolor=False):
+    env = dict(os.environ, II_SKIP_APPLYCOLOR="1") if skip_applycolor else None
+    subprocess.run([str(HERE / "switchwall.sh"), "--noswitch", *args], check=True, env=env,
                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 
@@ -99,9 +100,23 @@ def wait_applycolor(timeout=10.0):
         time.sleep(0.05)
 
 
+VIDEO_EXT = (".mp4", ".webm", ".mkv", ".avi", ".mov")
+
+
 def set_wallpaper(path, mode):
     subprocess.run([str(HERE / "switchwall.sh"), "--image", str(path), "--mode", mode], check=True,
                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+
+def set_wallpaper_path(path):
+    if str(path).lower().endswith(VIDEO_EXT) or current_wallpaper().lower().endswith(VIDEO_EXT):
+        return False
+    r = subprocess.run(["jq", "--arg", "path", str(path), ".background.wallpaperPath = $path", str(SHELL_CONFIG)],
+                       capture_output=True, text=True)
+    if r.returncode != 0 or not r.stdout.strip():
+        return False
+    write_atomic(SHELL_CONFIG, r.stdout)
+    return True
 
 
 _AVAILABLE = None
@@ -220,7 +235,23 @@ def kitty_overrides(values):
                            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 
+def shell_hold(on):
+    try:
+        subprocess.run(["qs", "-c", "ii", "ipc", "call", "theme", "hold" if on else "release"], timeout=3,
+                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    except (OSError, subprocess.TimeoutExpired):
+        pass
+
+
 def apply(key, wallpaper_step=None, mode=None):
+    shell_hold(True)
+    try:
+        apply_held(key, wallpaper_step, mode)
+    finally:
+        shell_hold(False)
+
+
+def apply_held(key, wallpaper_step=None, mode=None):
     if key in ALIASES:
         key, mode = ALIASES[key][0], mode or ALIASES[key][1]
     if mode not in MODES:
@@ -229,7 +260,7 @@ def apply(key, wallpaper_step=None, mode=None):
     if key in builtin:
         prev = previous_wallpaper()
         STATE_FILE.unlink(missing_ok=True)
-        if prev and is_theme_wallpaper(current_wallpaper()):
+        if prev and is_theme_wallpaper(current_wallpaper()) and not set_wallpaper_path(prev):
             set_wallpaper(prev, mode)
         switchwall("--mode", mode, "--type", "auto", "--color", "clear")
         return
@@ -251,9 +282,9 @@ def apply(key, wallpaper_step=None, mode=None):
     wallpaper = theme_wallpaper(names[index]) if names else None
     if wallpaper:
         remember_wallpaper()
-        if Path(current_wallpaper() or "/").resolve() != wallpaper.resolve():
+        if Path(current_wallpaper() or "/").resolve() != wallpaper.resolve() and not set_wallpaper_path(wallpaper):
             set_wallpaper(wallpaper, mode)
-    switchwall("--mode", mode, "--type", "scheme-tonal-spot", "--color", t["seed"])
+    switchwall("--mode", mode, "--type", "scheme-tonal-spot", "--color", t["seed"], skip_applycolor=bool(pal))
     if pal:
         override(pal)
     else:

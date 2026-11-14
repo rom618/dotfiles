@@ -24,7 +24,7 @@ MouseArea {
     property var applied: ({})
 
     readonly property string current: {
-        const bg = Appearance.m3colors.m3background.toString().toLowerCase();
+        const bg = MaterialThemeLoader.targetBackground.toString().toLowerCase();
         if (root.applied.theme && root.applied.background === bg)
             return root.applied.theme;
         const accent = Config.options.appearance.palette.accentColor || "";
@@ -70,6 +70,7 @@ MouseArea {
         root.slow = false;
         slowTimer.restart();
         giveUpTimer.restart();
+        MaterialThemeLoader.hold = true;
         applyProc.command = command;
         applyProc.running = true;
     }
@@ -161,6 +162,7 @@ MouseArea {
     onMenuOpenChanged: if (menuOpen) listProc.running = true
 
     function done() {
+        MaterialThemeLoader.hold = false;
         root.pending = "";
         root.slow = false;
         slowTimer.stop();

@@ -10,6 +10,32 @@ Scope {
     property string themeDecor: ""
     property bool particlesOn: true
     readonly property string decor: particlesOn ? themeDecor : ""
+    property string shownDecor: ""
+    property real decorOpacity: 0
+
+    onDecorChanged: decorSwap.restart()
+    Component.onCompleted: decorSwap.restart()
+
+    SequentialAnimation {
+        id: decorSwap
+        NumberAnimation {
+            target: root
+            property: "decorOpacity"
+            to: 0
+            duration: root.shownDecor === "" ? 0 : 350
+            easing.type: Easing.InOutCubic
+        }
+        ScriptAction {
+            script: root.shownDecor = root.decor
+        }
+        NumberAnimation {
+            target: root
+            property: "decorOpacity"
+            to: 1
+            duration: 600
+            easing.type: Easing.InOutCubic
+        }
+    }
 
     FileView {
         path: `${Directories.state}/user/generated/theme-prefs.json`
@@ -41,7 +67,7 @@ Scope {
     }
 
     Variants {
-        model: root.decor !== "" ? Quickshell.screens : []
+        model: root.shownDecor !== "" ? Quickshell.screens : []
 
         PanelWindow {
             id: win
@@ -63,22 +89,23 @@ Scope {
             Item {
                 id: field
                 anchors.fill: parent
+                opacity: root.decorOpacity
 
                 Repeater {
-                    model: ({ stars: 70, leaves: 22, autumn: 22, petals: 28, snow: 45, sand: 90, rain: 140, embers: 40, fireflies: 30, ocean: 30 })[root.decor] ?? 26
+                    model: ({ stars: 70, leaves: 22, autumn: 22, petals: 28, snow: 45, sand: 90, rain: 140, embers: 40, fireflies: 30, ocean: 30 })[root.shownDecor] ?? 26
                     delegate: Loader {
                         required property int index
-                        sourceComponent: root.decor === "stars" ? star : drifter
+                        sourceComponent: root.shownDecor === "stars" ? star : drifter
                     }
                 }
 
                 Loader {
-                    active: root.decor === "stars"
+                    active: root.shownDecor === "stars"
                     sourceComponent: shootingStar
                 }
 
                 Loader {
-                    active: root.decor === "sand"
+                    active: root.shownDecor === "sand"
                     sourceComponent: tumbleweed
                 }
             }
@@ -99,7 +126,7 @@ Scope {
                     property real blinks: 3
                     property string asset: ""
                     property color tint: "#D9A066"
-                    readonly property string kind: root.decor
+                    readonly property string kind: root.shownDecor
                     readonly property bool rising: kind === "bubbles" || kind === "embers" || kind === "ocean"
                     readonly property bool windy: kind === "sand"
                     readonly property bool wander: kind === "fireflies"
