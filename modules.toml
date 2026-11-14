@@ -127,8 +127,8 @@ desktop = true
 settings = { "light.night.followSun" = [false, true] }
 
 [module.follow-location]
-description = "Weather, sunset and sunrise follow your real position (GeoClue, Wi-Fi based) instead of the configured city; wttr.in gets it rounded to about 1 km"
-default = true
+description = "Weather, sunset and sunrise follow your real position (GeoClue, Wi-Fi based) instead of the configured city; wttr.in gets it rounded to about 1 km; on a Wi-Fi listed in bar.weather.cityOnNetworks (e.g. a 4G box the location service places wrongly) the city is used"
+default = false
 desktop = true
 packages = { arch = ["geoclue"], ubuntu = ["geoclue-2.0", "geoclue-2-demo"] }
 settings = { "bar.weather.enableGPS" = [false, true] }

@@ -15,10 +15,14 @@ Singleton {
     readonly property string city: Config.options.bar.weather.city
     readonly property bool useUSCS: Config.options.bar.weather.useUSCS
     property bool gpsActive: Config.options.bar.weather.enableGPS
+    readonly property bool onCityNetwork: Config.options.bar.weather.cityOnNetworks.includes(Network.networkName)
     property int retryCount: 0
     readonly property int maxRetries: 5
 
     onUseUSCSChanged: {
+        root.getData();
+    }
+    onOnCityNetworkChanged: {
         root.getData();
     }
     onCityChanged: {
@@ -85,7 +89,7 @@ Singleton {
     function getData() {
         let command = "curl -s --max-time 10 wttr.in";
 
-        if (root.gpsActive && root.location.valid) {
+        if (root.gpsActive && root.location.valid && !root.onCityNetwork) {
             command += `/${root.location.lat.toFixed(2)},${root.location.long.toFixed(2)}`;
             root.location.fetchedLat = root.location.lat;
             root.location.fetchedLong = root.location.long;
