@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 
-QS_COMMIT=4f508be500dea6e5732cc3d50382a0048b17e7b1
+QS_COMMIT=9b0f339b19057f4731bf3b48293307d7ef241671
 QS_REPOS=(https://git.outfoxxed.me/quickshell/quickshell.git https://github.com/quickshell-mirror/quickshell.git)
 MICROTEX_COMMIT=0e3707f6dafebb121d98b53c64364d16fefe481d
 MICROTEX_REPO=https://github.com/end-4/MicroTeX.git

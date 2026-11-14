@@ -73,7 +73,7 @@ AGENTS = {"claude": "claude", "pi": "pi", "codex": "codex", "codex.js": "codex"}
 
 
 def agent_of(cmdline):
-    for a in (cmdline or [])[:2]:
+    for a in (cmdline or [])[:3]:
         name = AGENTS.get(os.path.basename(a))
         if name:
             return name

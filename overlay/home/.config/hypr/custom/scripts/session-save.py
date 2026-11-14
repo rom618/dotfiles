@@ -104,7 +104,7 @@ def claude_session(pid):
 
 
 def is_claude(cmdline):
-    return any(os.path.basename(a) == "claude" for a in cmdline[:2])
+    return any(os.path.basename(a) == "claude" or "@anthropic-ai/claude-code" in a for a in cmdline[:3])
 
 
 def window_program(win):

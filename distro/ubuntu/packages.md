@@ -114,7 +114,7 @@ Ubuntu has no python3.12, uv downloads a managed CPython 3.12.
 
 | Arch | Ubuntu | How |
 |---|---|---|
-| quickshell `4f508be500dea6e5732cc3d50382a0048b17e7b1 (v0.3.2, what Arch ships)` | same commit, end-4's cmake flags, prefix `/usr/local` | build (git.outfoxxed.me, fallback github mirror) |
+| quickshell `9b0f339b19057f4731bf3b48293307d7ef241671 (v0.3.2 plus 11 commits: Hyprland 0.57 workspace id events, lock unlock fix; 2026-11-14)` | same commit, end-4's cmake flags, prefix `/usr/local` | build (git.outfoxxed.me, fallback github mirror) |
 | cpptrace | 26.10: libcpptrace-dev; 26.04: `-DVENDOR_CPPTRACE=ON` (libunwind-dev, libdwarf-dev, libzstd-dev) | apt / build |
 | jemalloc, libdrm, libpipewire, libxcb, wayland, mesa | libjemalloc-dev, libdrm-dev, libpipewire-0.3-dev, libxcb1-dev, libwayland-dev, libgbm-dev, libegl-dev | apt |
 | qt6-base, qt6-declarative, qt6-svg, qt6-wayland | qt6-base(-private)-dev, qt6-declarative(-private)-dev, qt6-svg-dev, qt6-svg-plugins, qt6-wayland(-dev) | apt |

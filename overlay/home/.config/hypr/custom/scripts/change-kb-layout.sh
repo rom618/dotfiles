@@ -8,21 +8,8 @@ if [ -z "$DEVICE" ]; then
     DEVICE=$(hyprctl devices -j | jq -r '.keyboards[0].name')
 fi
 
-CURRENT=$(hyprctl devices -j | jq -r --arg dev "$DEVICE" '.keyboards[] | select(.name == $dev) | .active_keymap')
+hyprctl switchxkblayout "$DEVICE" next >/dev/null
 
-if echo "$CURRENT" | grep -qi "us"; then
-    NEW_LAYOUT="ca"
-    NEW_VARIANT="fr-legacy"
-    LABEL="Canadian French"
-else
-    NEW_LAYOUT="us"
-    NEW_VARIANT=""
-    LABEL="US"
-fi
-
-hyprctl keyword input:kb_layout "$NEW_LAYOUT"
-hyprctl keyword input:kb_variant "$NEW_VARIANT"
-
-hyprctl switchxkblayout "$DEVICE" next
+LABEL=$(hyprctl devices -j | jq -r --arg dev "$DEVICE" '.keyboards[] | select(.name == $dev) | .active_keymap')
 
 notify-send "Keyboard Layout" "Switched to $LABEL" -a "Shell" -t 1500

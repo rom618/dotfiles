@@ -92,7 +92,7 @@ default = true
 desktop = true
 
 [module.bar-agent-usage]
-description = "Bar: a robot icon (only where Claude Code is installed), and workspace icons that show a Claude Code, pi or codex agent working (spin, orbit, ripple), waiting or done (pi needs its agent-state extension, in kitty only)"
+description = "Bar: a robot icon (only where Claude Code is installed), and workspace icons that show a Claude Code, pi or codex agent working (spin, orbit, ripple), waiting or done (in kitty only; pi and codex show only their icon unless a hook or extension writes their state, which this repo does not install)"
 default = false
 desktop = true
 packages = { arch = ["python"], ubuntu = ["python3"] }
