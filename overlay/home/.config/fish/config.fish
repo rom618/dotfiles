@@ -79,3 +79,4 @@ set -x SUDO_EDITOR nvim
 # share:begin fish-aliases
 fish_add_path $HOME/.local/bin
 # share:end
+test -d $HOME/.pi/agent/bin; and fish_add_path $HOME/.pi/agent/bin
