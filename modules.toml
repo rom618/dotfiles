@@ -263,6 +263,7 @@ sudo = true
 "home/.config/quickshell/ii/modules/common/Config.qml" = "base"
 "home/.config/quickshell/ii/modules/common/Directories.qml" = "base"
 "home/.config/quickshell/ii/modules/common/Persistent.qml" = "base"
+"home/.config/quickshell/ii/modules/common/panels/lock/LockScreen.qml" = "idle-lid"
 "home/.config/quickshell/ii/modules/common/widgets/NotificationGroup.qml" = "notifications-click"
 "home/.config/quickshell/ii/modules/common/widgets/NotificationItem.qml" = "notifications-click"
 "home/.config/quickshell/ii/modules/ii/background/ThemeDecor.qml" = "bar-themes"
