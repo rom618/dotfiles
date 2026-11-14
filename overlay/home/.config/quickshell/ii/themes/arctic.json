@@ -4,7 +4,12 @@
     "order": 20,
     "mode": "light",
     "seed": "#61A5C2",
-    "wallpapers": ["arctic-pines"],
+    "wallpapers": [
+        "arctic-cec856c",
+        "arctic-c5c4c89",
+        "arctic-p9dp7p",
+        "arctic-pines"
+    ],
     "decor": "snow",
     "swatch": ["#013A63", "#2A6F97", "#61A5C2", "#A9D6E5", "#5E60CE"],
     "colors": {

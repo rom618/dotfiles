@@ -4,7 +4,13 @@
     "order": 30,
     "mode": "light",
     "seed": "#57CC99",
-    "wallpapers": ["mint-lowpoly"],
+    "wallpapers": [
+        "mint-zpd1gj",
+        "mint-96l5xd",
+        "mint-96m7md",
+        "mint-oglymm",
+        "mint-lowpoly"
+    ],
     "decor": "bubbles",
     "swatch": ["#22577A", "#38A3A5", "#57CC99", "#80ED99", "#C7F9CC"],
     "colors": {

@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
+import io
+import json
 import math
 import os
 import random
 import sys
+import urllib.request
 from pathlib import Path
 
-from PIL import Image, ImageChops, ImageDraw, ImageEnhance, ImageFilter
+from PIL import Image, ImageChops, ImageDraw, ImageEnhance, ImageFilter, ImageOps
 
 W, H = 2560, 1600
 OUT_SIZE = (3840, 2400)
@@ -545,15 +548,52 @@ def load_private():
         MAKERS[name] = lambda fn=fn: fn(this)
 
 
+def load_photos():
+    path = Path(__file__).resolve().parent / "photos.json"
+    try:
+        return json.loads(path.read_text())
+    except (OSError, ValueError):
+        return {}
+
+
+def fetch_photo(url):
+    req = urllib.request.Request(url, headers={"User-Agent": "quickshell-themes/1.0"})
+    with urllib.request.urlopen(req, timeout=60) as r:
+        data = r.read(64 * 1024 * 1024 + 1)
+    if len(data) > 64 * 1024 * 1024:
+        raise ValueError("photo too large")
+    img = Image.open(io.BytesIO(data))
+    img = ImageOps.exif_transpose(img).convert("RGB")
+    scale = max(OUT_SIZE[0] / img.width, OUT_SIZE[1] / img.height)
+    if scale < 1:
+        img = img.resize((round(img.width * scale), round(img.height * scale)), Image.LANCZOS)
+    return img
+
+
+PHOTOS = load_photos()
+
+
 if __name__ == "__main__":
     load_private()
     if sys.argv[1:] == ["--list"]:
-        print("\n".join(MAKERS))
+        print("\n".join(list(MAKERS) + list(PHOTOS)))
         sys.exit(0)
     names = sys.argv[1:] or list(MAKERS)
     OUT.mkdir(parents=True, exist_ok=True)
+    failed = 0
     for name in names:
         tmp = OUT / f".{name}.jpg.tmp"
-        MAKERS[name]().resize(OUT_SIZE, Image.LANCZOS).save(tmp, "JPEG", quality=90, optimize=True, progressive=True)
+        try:
+            if name in PHOTOS:
+                img = fetch_photo(PHOTOS[name]["url"])
+            else:
+                img = MAKERS[name]().resize(OUT_SIZE, Image.LANCZOS)
+            img.save(tmp, "JPEG", quality=92, optimize=True, progressive=True)
+        except Exception as e:
+            tmp.unlink(missing_ok=True)
+            print(f"{name}: {e}", file=sys.stderr)
+            failed += 1
+            continue
         tmp.replace(OUT / f"{name}.jpg")
         print(f"{name}.jpg {(OUT / f'{name}.jpg').stat().st_size // 1024} KB")
+    sys.exit(1 if failed else 0)

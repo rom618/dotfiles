@@ -33,7 +33,7 @@ def camel(key):
 
 def load(key):
     path = THEMES / f"{key}.json"
-    if not re.fullmatch(r"[a-z0-9-]+", key) or not path.is_file():
+    if not re.fullmatch(r"[a-z0-9-]+", key) or key == "photos" or not path.is_file():
         raise SystemExit(f"unknown theme: {key}")
     t = json.loads(path.read_text())
     sources = [("", t)] + [(f"palettes.{m}.", p) for m, p in (t.get("palettes") or {}).items()]
@@ -73,6 +73,8 @@ def preferred_mode():
 def themes():
     found = []
     for path in sorted(THEMES.glob("*.json")):
+        if path.stem == "photos":
+            continue
         try:
             t = load(path.stem)
         except (SystemExit, ValueError):
@@ -289,6 +291,10 @@ def apply_held(key, wallpaper_step=None, mode=None):
         override(pal)
     else:
         wait_applycolor()
+    missing = [n for n in names if not (WALLPAPERS / f"{n}.jpg").is_file()]
+    if missing:
+        subprocess.Popen([sys.executable, str(THEMES / "make-wallpapers.py"), *missing], start_new_session=True,
+                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     write_atomic(STATE_FILE, json.dumps({"theme": key, "mode": mode, "decor": t.get("decor", ""),
                                          "wallpaper_index": index, "wallpapers": len(names),
                                          "background": current_background()}) + "\n")

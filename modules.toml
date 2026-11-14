@@ -312,6 +312,7 @@ sudo = true
 "home/.config/quickshell/ii/themes/mint.json" = "bar-themes"
 "home/.config/quickshell/ii/themes/neon.json" = "bar-themes"
 "home/.config/quickshell/ii/themes/ocean.json" = "bar-themes"
+"home/.config/quickshell/ii/themes/photos.json" = "bar-themes"
 "home/.config/quickshell/ii/themes/sakura.json" = "bar-themes"
 "home/.config/quickshell/ii/welcome.qml" = "base"
 "home/.ideavimrc" = "nvim-vim"

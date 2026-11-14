@@ -4,7 +4,13 @@
     "order": 5,
     "mode": "dark",
     "seed": "#4B57B8",
-    "wallpapers": ["midnight-galaxy"],
+    "wallpapers": [
+        "midnight-kwq9x1",
+        "midnight-nk7rzd",
+        "midnight-0qzp5q",
+        "midnight-c07a48f",
+        "midnight-galaxy"
+    ],
     "decor": "stars",
     "swatch": ["#0B1026", "#2E3A80", "#A6B1FF", "#C6B8F0", "#F5D687"],
     "colors": {

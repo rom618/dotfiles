@@ -4,7 +4,12 @@
     "order": 40,
     "mode": "light",
     "seed": "#C9693F",
-    "wallpapers": ["desert-night"],
+    "wallpapers": [
+        "desert-j3jqkw",
+        "desert-ce8ddce",
+        "desert-wy8xlr",
+        "desert-night"
+    ],
     "decor": "sand",
     "swatch": ["#EAD7B7", "#D9A066", "#C9693F", "#A34A28", "#3E6E7A"],
     "colors": {
