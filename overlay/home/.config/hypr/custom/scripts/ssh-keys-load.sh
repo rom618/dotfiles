@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 # At login: load this user's ssh keys into the agent, each passphrase read from the login keyring
 # (secret-tool attributes dotfiles=ssh-key path=<key file>).
-# Keys without such an entry are left alone. No-op without the keyring or the agent.
 set -u
 export SSH_AUTH_SOCK="${SSH_AUTH_SOCK:-${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/ssh-agent.socket}"
 command -v secret-tool >/dev/null || exit 0
