@@ -5,11 +5,10 @@
     "mode": "dark",
     "seed": "#4B57B8",
     "wallpapers": [
-        "midnight-kwq9x1",
         "midnight-nk7rzd",
+        "midnight-kwq9x1",
         "midnight-0qzp5q",
-        "midnight-c07a48f",
-        "midnight-galaxy"
+        "midnight-c07a48f"
     ],
     "decor": "stars",
     "swatch": ["#0B1026", "#2E3A80", "#A6B1FF", "#C6B8F0", "#F5D687"],

@@ -126,6 +126,13 @@ default = true
 desktop = true
 settings = { "light.night.followSun" = [false, true] }
 
+[module.follow-location]
+description = "Weather, sunset and sunrise follow your real position (GeoClue, Wi-Fi based) instead of the configured city; wttr.in gets it rounded to about 1 km"
+default = true
+desktop = true
+packages = { arch = ["geoclue"], ubuntu = ["geoclue-2.0", "geoclue-2-demo"] }
+settings = { "bar.weather.enableGPS" = [false, true] }
+
 [module.ai-sidebar-extras]
 description = "AI sidebar: thinking on and off, local Ollama models unloaded when idle, shell command tool, assistant name and icon, aiconfig"
 default = true

@@ -86,7 +86,9 @@ Singleton {
         let command = "curl -s --max-time 10 wttr.in";
 
         if (root.gpsActive && root.location.valid) {
-            command += `/${root.location.lat},${root.location.long}`;
+            command += `/${root.location.lat.toFixed(2)},${root.location.long.toFixed(2)}`;
+            root.location.fetchedLat = root.location.lat;
+            root.location.fetchedLong = root.location.long;
         } else {
             command += `/${formatCityName(root.city)}`;
         }
@@ -163,7 +165,10 @@ Singleton {
                 root.location.long = position.coordinate.longitude;
                 root.location.valid = true;
                 // console.info(`📍 Location: ${position.coordinate.latitude}, ${position.coordinate.longitude}`);
-                root.getData();
+                if (root.location.fetchedLat === undefined
+                        || Math.abs(root.location.lat - root.location.fetchedLat) > 0.05
+                        || Math.abs(root.location.long - root.location.fetchedLong) > 0.05)
+                    root.getData();
                 // if can't get initialized with valid location deactivate the GPS
             } else {
                 root.gpsActive = root.location.valid ? true : false;
@@ -183,10 +188,10 @@ Singleton {
     }
 
     Timer {
-        running: !root.gpsActive
+        running: true
         repeat: true
         interval: root.fetchInterval
-        triggeredOnStart: !root.gpsActive
+        triggeredOnStart: true
         onTriggered: root.getData()
     }
 }

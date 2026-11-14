@@ -5,10 +5,9 @@
     "mode": "dark",
     "seed": "#2D6A4F",
     "wallpapers": [
-        "forest-4vj16l",
-        "forest-732vgo",
         "forest-96l5xd",
-        "forest"
+        "forest-4vj16l",
+        "forest-732vgo"
     ],
     "decor": "leaves",
     "swatch": ["#081C15", "#2D6A4F", "#52B788", "#B7E4C7", "#E9C46A"],
