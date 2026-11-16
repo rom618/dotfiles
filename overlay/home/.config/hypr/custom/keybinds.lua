@@ -21,11 +21,41 @@ hl.unbind("Print")
 -- share:end
 -- share:begin keybinds
 -- Rebind move-to-workspace to SUPER + SHIFT + [0-9]
-for i = 1, 9 do
-    hl.bind("SUPER + SHIFT + " .. tostring(i), hl.dsp.window.move({ workspace = tostring(i) }),
-        { description = "Window: Move to workspace 1" })
+for i = 1, 10 do
+    hl.bind("SUPER + SHIFT + " .. (i % 10), function()
+        hl.dispatch(hl.dsp.window.move({ workspace = workspace_in_group(i) }))
+    end, { description = "Window: Move to workspace " .. i .. " of this screen" })
 end
-hl.bind("SUPER + SHIFT + 0", hl.dsp.window.move({ workspace = "10" }))
+
+local function move_to_screen(step)
+    local mons = {}
+    for _, m in ipairs(hl.get_monitors()) do
+        if m.enabled and not m.is_mirror then
+            table.insert(mons, m)
+        end
+    end
+    table.sort(mons, function(a, b) return a.x < b.x end)
+    for i, m in ipairs(mons) do
+        if m.focused then
+            local target = mons[i + step]
+            if target and target.active_workspace then
+                hl.dispatch(hl.dsp.window.move({ workspace = target.active_workspace.id }))
+            end
+            return
+        end
+    end
+end
+hl.bind("SUPER + SHIFT + ALT + Left", function() move_to_screen(-1) end,
+    { description = "Window: Send to the screen on the left" })
+hl.bind("SUPER + SHIFT + ALT + Right", function() move_to_screen(1) end,
+    { description = "Window: Send to the screen on the right" })
+
+-- share:end
+-- share:begin session-restore
+hl.unbind("CTRL + SHIFT + ALT + SUPER + Delete")
+hl.bind("CTRL + SHIFT + ALT + SUPER + Delete",
+    hl.dsp.exec_cmd("qs -c ii ipc call session poweroff || systemctl poweroff || loginctl poweroff"),
+    { description = "Session: Shut down" })
 
 -- share:end
 -- share:begin display-input

@@ -14,7 +14,7 @@ desktop = true
 packages = { arch = ["jq", "libnotify"], ubuntu = ["jq", "libnotify-bin"] }
 
 [module.keybinds]
-description = "SUPER+SHIFT+N moves a window to workspace N; SUPER+ALT+N and Print unbound"
+description = "SUPER+SHIFT+N moves a window to workspace N of the current screen, SUPER+SHIFT+ALT+Left/Right to the other screen; SUPER+ALT+N and Print unbound"
 default = true
 desktop = true
 
@@ -24,7 +24,7 @@ default = true
 desktop = true
 
 [module.session-restore]
-description = "Saves the open windows every few minutes and reopens them at login"
+description = "Saves the open windows every few minutes and reopens them at login; power off, reboot and logout wait for windows to close so Chrome reopens its pages"
 default = true
 desktop = true
 packages = { arch = ["python"], ubuntu = ["python3"] }
@@ -263,6 +263,7 @@ sudo = true
 "home/.config/quickshell/ii/modules/common/Config.qml" = "base"
 "home/.config/quickshell/ii/modules/common/Directories.qml" = "base"
 "home/.config/quickshell/ii/modules/common/Persistent.qml" = "base"
+"home/.config/quickshell/ii/modules/common/functions/Session.qml" = "session-restore"
 "home/.config/quickshell/ii/modules/common/panels/lock/LockScreen.qml" = "idle-lid"
 "home/.config/quickshell/ii/modules/common/widgets/NotificationGroup.qml" = "notifications-click"
 "home/.config/quickshell/ii/modules/common/widgets/NotificationItem.qml" = "notifications-click"
@@ -287,6 +288,7 @@ sudo = true
 "home/.config/quickshell/ii/modules/ii/bar/Workspaces.qml" = "bar-agent-usage"
 "home/.config/quickshell/ii/modules/ii/cheatsheet/Cheatsheet.qml" = "cheatsheet-extras"
 "home/.config/quickshell/ii/modules/ii/cheatsheet/CheatsheetAliases.qml" = "cheatsheet-extras"
+"home/.config/quickshell/ii/modules/ii/sessionScreen/SessionScreen.qml" = "session-restore"
 "home/.config/quickshell/ii/modules/ii/sidebarLeft/AiChat.qml" = "ai-sidebar-extras"
 "home/.config/quickshell/ii/modules/ii/sidebarLeft/SidebarLeftContent.qml" = "base"
 "home/.config/quickshell/ii/modules/ii/sidebarLeft/aiChat/AiMessage.qml" = "ai-sidebar-extras"
