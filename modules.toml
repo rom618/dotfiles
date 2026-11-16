@@ -8,7 +8,7 @@ remove = [".config/quickshell/ii/modules/ii/sidebarLeft/Anime.qml", ".config/qui
 settings = { "background.widgets.clock.enable" = [true, false], "bar.weather.enable" = [false, true] }
 
 [module.display-input]
-description = "Monitor layout and scale, keyboard layouts, layout switch on SUPER+Space"
+description = "Monitor layout and scale, 10 workspaces per screen (laptop 1-10, then 11-20, 21-30... per output), keyboard layouts, layout switch on SUPER+Space"
 default = true
 desktop = true
 packages = { arch = ["jq", "libnotify"], ubuntu = ["jq", "libnotify-bin"] }
