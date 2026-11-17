@@ -376,6 +376,12 @@ ButtonMouseArea {
                         onYChanged: Qt.callLater(caler)
                         onVisibleChanged: if (visible) Qt.callLater(caler)
                         Component.onCompleted: Qt.callLater(caler)
+                        Timer {
+                            interval: 250
+                            repeat: true
+                            running: parent.visible
+                            onTriggered: parent.caler()
+                        }
                         readonly property bool waiting: wsApp.claudeState === "waiting"
                         readonly property bool counting: !waiting && wsApp.unread > 0
                         visible: wsApp.iconsShown && (waiting || counting || wsApp.claudeState === "done")
@@ -435,6 +441,12 @@ ButtonMouseArea {
                         onYChanged: Qt.callLater(caler)
                         onVisibleChanged: if (visible) Qt.callLater(caler)
                         Component.onCompleted: Qt.callLater(caler)
+                        Timer {
+                            interval: 250
+                            repeat: true
+                            running: parent.visible
+                            onTriggered: parent.caler()
+                        }
                         visible: wsApp.iconsShown && wsApp.subagents > 0
                         anchors {
                             left: appIcon.left
