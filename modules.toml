@@ -181,6 +181,12 @@ desktop = true
 sudo = true
 packages = { arch = ["sddm", "rsync", "git"], ubuntu = ["sddm", "rsync", "git"] }
 
+[module.terminal-toys]
+description = "Terminal Toys: a bar button that plays small animated scenes (garden, cat…) in kitty windows, drawn by a kitty watcher"
+default = false
+desktop = true
+packages = { arch = ["python-pillow"], ubuntu = ["python3-pil"] }
+
 [module.power-button]
 description = "The power button no longer powers off; lid close policy"
 default = false
@@ -226,6 +232,7 @@ sudo = true
 "home/.config/hypr/hyprlock.conf" = "lockscreen"
 "home/.config/kitty/closed_watcher.py" = "kitty"
 "home/.config/kitty/kitty.conf" = "kitty"
+"home/.config/kitty/terminal_toys_watcher.py" = "terminal-toys"
 "home/.config/nvim/init.vim" = "nvim-vim"
 "home/.config/nvim/lazy-lock.json" = "nvim-vim"
 "home/.config/nvim/lua/myconfig.lua" = "nvim-vim"
@@ -290,6 +297,7 @@ sudo = true
 "home/.config/quickshell/ii/modules/ii/bar/Resources.qml" = "bar-layout"
 "home/.config/quickshell/ii/modules/ii/bar/ResourcesPopup.qml" = "bar-resources"
 "home/.config/quickshell/ii/modules/ii/bar/SysTray.qml" = "bar-layout"
+"home/.config/quickshell/ii/modules/ii/bar/TerminalToys.qml" = "terminal-toys"
 "home/.config/quickshell/ii/modules/ii/bar/ThemeIndicator.qml" = "bar-themes"
 "home/.config/quickshell/ii/modules/ii/bar/Workspaces.qml" = "bar-agent-usage"
 "home/.config/quickshell/ii/modules/ii/cheatsheet/Cheatsheet.qml" = "cheatsheet-extras"
@@ -308,6 +316,7 @@ sudo = true
 "home/.config/quickshell/ii/scripts/colors/applycolor.sh" = "kitty"
 "home/.config/quickshell/ii/scripts/colors/terminal/sequences.txt" = "base"
 "home/.config/quickshell/ii/scripts/colors/theme-contrast.py" = "bar-themes"
+"home/.config/quickshell/ii/scripts/terminal-toys.py" = "terminal-toys"
 "home/.config/quickshell/ii/services/Ai.qml" = "ai-sidebar-extras"
 "home/.config/quickshell/ii/services/Brightness.qml" = "base"
 "home/.config/quickshell/ii/services/ClaudeWindows.qml" = "bar-agent-usage"

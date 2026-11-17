@@ -387,6 +387,13 @@ Item { // Bar content region
             }
 
             // share:end
+            // share:begin terminal-toys
+            BarGroup {
+                Layout.leftMargin: 4
+                TerminalToys {}
+            }
+
+            // share:end
             // share:begin bar-docker
             // Docker
             Loader {
