@@ -75,7 +75,7 @@ desktop = false
 packages = { arch = ["kitty"], ubuntu = ["kitty"] }
 
 [module.nvim-vim]
-description = "Neovim and Vim config, IdeaVim config, the nv alias, nvim as SUDO_EDITOR"
+description = "Neovim and Vim config (LSP servers via Mason, blink completion, format on save per repo, which-key, textobjects, trouble), IdeaVim config, the nv alias, nvim as SUDO_EDITOR"
 default = false
 desktop = false
 packages = { arch = ["neovim", "vim"], ubuntu = ["neovim", "vim"] }
@@ -229,6 +229,12 @@ sudo = true
 "home/.config/nvim/init.vim" = "nvim-vim"
 "home/.config/nvim/lazy-lock.json" = "nvim-vim"
 "home/.config/nvim/lua/myconfig.lua" = "nvim-vim"
+"home/.config/nvim/lua/plugins/completion.lua" = "nvim-vim"
+"home/.config/nvim/lua/plugins/format.lua" = "nvim-vim"
+"home/.config/nvim/lua/plugins/lsp.lua" = "nvim-vim"
+"home/.config/nvim/lua/plugins/navigation.lua" = "nvim-vim"
+"home/.config/nvim/lua/plugins/treesitter.lua" = "nvim-vim"
+"home/.config/nvim/lua/plugins/ui.lua" = "nvim-vim"
 "home/.config/quickshell/ii/assets/decor/bubble-mint.svg" = "bar-themes"
 "home/.config/quickshell/ii/assets/decor/bubble-teal.svg" = "bar-themes"
 "home/.config/quickshell/ii/assets/decor/bubble-white.svg" = "bar-themes"
