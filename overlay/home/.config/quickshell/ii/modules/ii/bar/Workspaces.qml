@@ -27,6 +27,7 @@ ButtonMouseArea {
     property real activeWorkspaceMargin: 2
     property real activeWorkspaceSize: workspaceButtonWidth - activeWorkspaceMargin * 2
     property real workspaceIconSize: workspaceButtonWidth * 0.69
+    readonly property real dpr: root.QsWindow.window?.devicePixelRatio ?? 1
     property real workspaceIconSizeShrinked: workspaceButtonWidth * 0.55
     property real workspaceIconOpacityShrinked: 1
     property real workspaceIconMarginShrinked: -4
@@ -221,6 +222,8 @@ ButtonMouseArea {
                     property string claudeState: claudeShown ? ClaudeWindows.workspaceState(wsId) : ""
                     property string agent: claudeShown ? ClaudeWindows.agentFor(biggestWindow) : ""
                     property bool agentWorking: claudeState === "running" && iconsShown
+                    property int subagents: claudeShown && agent === "claude" ? ClaudeWindows.workspaceSubagents(wsId) : 0
+                    property int unread: claudeShown ? ClaudeWindows.workspaceUnread(wsId) : 0
                     property bool iconsShown: !root.superPressAndHeld && Config.options?.bar.workspaces.showAppIcons && !!biggestWindow
                     property var mainAppIconSource: claudeShown ? ClaudeWindows.iconFor(biggestWindow) : Quickshell.iconPath(AppSearch.guessIcon(biggestWindow?.class), "image-missing")
 
@@ -238,7 +241,7 @@ ButtonMouseArea {
                         visible: false // Prevent dupe: the colorizer already copies the icon
 
                         source: wsApp.mainAppIconSource
-                        implicitSize: NumberUtils.roundToEven(root.workspaceIconSize)
+                        implicitSize: Math.round(NumberUtils.roundToEven(root.workspaceIconSize) * root.dpr) / root.dpr
 
                         Behavior on opacity {
                             animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(this)
@@ -252,7 +255,18 @@ ButtonMouseArea {
                         id: iconMask
                         visible: false
                         layer.enabled: true
+                        layer.textureSize: appIconTexture.textureSize
+                        layer.smooth: appIconTexture.smooth
                         diameter: appIcon.implicitSize
+                    }
+
+                    // Pixel-exact texture sampled without filtering at rest, so fractional scales don't blur the icon
+                    ShaderEffectSource {
+                        id: appIconTexture
+                        visible: false
+                        sourceItem: appIcon
+                        textureSize: Qt.size(Math.round(appIcon.width * root.dpr), Math.round(appIcon.height * root.dpr))
+                        smooth: colorizer.rotation !== 0 || colorizer.item?.scale !== 1
                     }
 
                     Loader { // Somehow putting this multieffect in a loader prevents it from not showing up
@@ -260,12 +274,14 @@ ButtonMouseArea {
                         anchors.fill: appIcon
                         rotation: 0
                         RotationAnimation on rotation {
-                            running: wsApp.claudeState === "running" && wsApp.agent === "claude"
+                            readonly property bool mainRunning: wsApp.claudeState === "running" && wsApp.agent === "claude"
+                            running: mainRunning || (wsApp.subagents > 0 && wsApp.claudeState !== "waiting")
                             from: 0
                             to: 360
-                            duration: 3000
+                            duration: mainRunning ? 3000 : 9000
                             loops: Animation.Infinite
                             onRunningChanged: if (!running) colorizer.rotation = 0
+                            onDurationChanged: if (running) restart()
                         }
                         sourceComponent: Colorizer {
                             implicitWidth: appIcon.implicitWidth
@@ -273,7 +289,7 @@ ButtonMouseArea {
                             colorizationColor: Appearance.m3colors.darkmode ? Appearance.colors.colOnSecondaryContainer : Appearance.colors.colOnPrimary
                             colorization: Config.options.bar.workspaces.monochromeIcons ? 0.8 : 0.5
                             brightness: 0
-                            source: appIcon
+                            source: appIconTexture
 
                             opacity: !Config.options?.bar.workspaces.showAppIcons ? 0 : (wsApp.biggestWindow && !root.superPressAndHeld && Config.options?.bar.workspaces.showAppIcons) ? 1 : wsApp.biggestWindow ? root.workspaceIconOpacityShrinked : 0
                             visible: opacity > 0
@@ -348,23 +364,49 @@ ButtonMouseArea {
 
                     Rectangle {
                         id: claudeBadge
+                        property real snapX: 0
+                        property real snapY: 0
+                        // À l'échelle 1,25 un chiffre tombe entre deux pixels et paraît plus ou moins gras : on cale la pastille sur un pixel entier.
+                        function caler() {
+                            const g = mapToItem(null, 0, 0);
+                            snapX += Math.round(g.x * root.dpr) / root.dpr - g.x;
+                            snapY += Math.round(g.y * root.dpr) / root.dpr - g.y;
+                        }
+                        onXChanged: Qt.callLater(caler)
+                        onYChanged: Qt.callLater(caler)
+                        onVisibleChanged: if (visible) Qt.callLater(caler)
+                        Component.onCompleted: Qt.callLater(caler)
                         readonly property bool waiting: wsApp.claudeState === "waiting"
-                        visible: wsApp.iconsShown && (waiting || wsApp.claudeState === "done")
+                        readonly property bool counting: !waiting && wsApp.unread > 0
+                        visible: wsApp.iconsShown && (waiting || counting || wsApp.claudeState === "done")
                         anchors {
                             right: appIcon.right
                             bottom: appIcon.bottom
-                            rightMargin: -3
-                            bottomMargin: -3
+                            rightMargin: -3 - snapX
+                            bottomMargin: -3 - snapY
                         }
                         width: 10
                         height: 10
                         radius: 5
-                        color: waiting ? Appearance.colors.colError : Appearance.m3colors.m3success
+                        color: waiting ? Appearance.colors.colError : counting ? Appearance.m3colors.m3primary : Appearance.m3colors.m3success
                         border.width: 1
                         border.color: Appearance.colors.colLayer1
 
+                        StyledText {
+                            anchors.fill: parent
+                            horizontalAlignment: Text.AlignHCenter
+                            verticalAlignment: Text.AlignVCenter
+                            visible: claudeBadge.counting
+                            text: Math.min(wsApp.unread, 9)
+                            renderType: Text.NativeRendering
+                            font.pixelSize: 8
+                            font.weight: Font.Normal
+                            color: Appearance.m3colors.m3onPrimary
+                        }
+
                         MaterialSymbol {
                             anchors.centerIn: parent
+                            visible: !claudeBadge.counting
                             text: claudeBadge.waiting ? "priority_high" : "check"
                             iconSize: 8
                             fill: 1
@@ -377,6 +419,46 @@ ButtonMouseArea {
                             NumberAnimation { to: 0.35; duration: 600 }
                             NumberAnimation { to: 1; duration: 600 }
                             onRunningChanged: if (!running) claudeBadge.opacity = 1
+                        }
+                    }
+
+                    Rectangle {
+                        id: subagentBadge
+                        property real snapX: 0
+                        property real snapY: 0
+                        // À l'échelle 1,25 un chiffre tombe entre deux pixels et paraît plus ou moins gras : on cale la pastille sur un pixel entier.
+                        function caler() {
+                            const g = mapToItem(null, 0, 0);
+                            snapX += Math.round(g.x * root.dpr) / root.dpr - g.x;
+                            snapY += Math.round(g.y * root.dpr) / root.dpr - g.y;
+                        }
+                        onXChanged: Qt.callLater(caler)
+                        onYChanged: Qt.callLater(caler)
+                        onVisibleChanged: if (visible) Qt.callLater(caler)
+                        Component.onCompleted: Qt.callLater(caler)
+                        visible: wsApp.iconsShown && wsApp.subagents > 0
+                        anchors {
+                            left: appIcon.left
+                            bottom: appIcon.bottom
+                            leftMargin: -3 + snapX
+                            bottomMargin: -3 - snapY
+                        }
+                        width: 10
+                        height: 10
+                        radius: 5
+                        color: "transparent"
+
+                        StyledText {
+                            anchors.fill: parent
+                            horizontalAlignment: Text.AlignHCenter
+                            verticalAlignment: Text.AlignVCenter
+                            text: Math.min(wsApp.subagents, 9)
+                            renderType: Text.NativeRendering
+                            font.pixelSize: 10
+                            font.weight: Font.Normal
+                            color: Appearance.m3colors.m3onSecondaryContainer
+                            style: Text.Outline
+                            styleColor: Appearance.colors.colLayer1
                         }
                     }
                 }
@@ -471,7 +553,6 @@ ButtonMouseArea {
         property bool hasBiggestWindow: !!wsModel.biggestWindow[index]
         property bool openLogo: hasBiggestWindow && !root.superPressAndHeld && Config.options?.bar.workspaces.showAppIcons
             && ClaudeWindows.stateFor(wsModel.biggestWindow[index]) !== ""
-            && ["pi", "codex"].includes(ClaudeWindows.agentFor(wsModel.biggestWindow[index]))
         property int wsId: wsModel.getWorkspaceIdAt(index)
         property color contentColor: (wsModel.occupied[wsNum.index] && wsId !== wsModel.fakeWorkspace) ? Appearance.colors.colOnSecondaryContainer : Appearance.colors.colOnLayer1Inactive
         property bool showingNumbers: {

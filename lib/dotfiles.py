@@ -605,6 +605,62 @@ def apply_settings(manifest, chosen, state, plan):
         tmp.replace(SHELL_CONFIG)
 
 
+AGENT_SCRIPTS = HOME / ".config" / "quickshell" / "ii" / "scripts" / "claude"
+AGENT_HOOKS = {
+    HOME / ".claude" / "settings.json": {"SubagentStart": "subagents.py", "SubagentStop": "subagents.py"},
+    HOME / ".codex" / "hooks.json": {"UserPromptSubmit": "agent-state.sh running", "Stop": "agent-state.sh done"},
+}
+
+
+def apply_agent_hooks(chosen, previous, plan):
+    """Adds or removes exactly the agent-hooks entries, leaving every other hook and setting as it is."""
+    on = "agent-hooks" in chosen
+    if not on and "agent-hooks" not in (previous or []):
+        return
+    for path, events in AGENT_HOOKS.items():
+        if not path.parent.is_dir():
+            continue
+        try:
+            cfg = json.loads(path.read_text()) if path.exists() else {}
+        except ValueError:
+            plan.note(f"agent-hooks: skipped {path}, it is not valid JSON")
+            continue
+        hooks = cfg.get("hooks", {})
+        changed = False
+        for event, script in events.items():
+            command = f"{AGENT_SCRIPTS}/{script}"
+            groups = hooks.get(event, [])
+            present = any(h.get("command") == command for g in groups for h in g.get("hooks", []))
+            if on and not present:
+                hooks[event] = groups + [{"hooks": [{"type": "command", "command": command}]}]
+                changed = True
+            elif not on and present:
+                kept = [dict(g, hooks=[h for h in g["hooks"] if h.get("command") != command]) for g in groups]
+                kept = [g for g in kept if g["hooks"]]
+                if kept:
+                    hooks[event] = kept
+                else:
+                    del hooks[event]
+                changed = True
+        if not changed:
+            continue
+        plan.say(("add" if on else "remove") + f" the bar's agent hooks in {path}")
+        if on and path.parent.name == ".codex":
+            plan.note(f"agent-hooks: in Codex, open /hooks and trust the new hooks of {path}; Codex skips them until then")
+        if plan.dry_run:
+            continue
+        if hooks:
+            cfg["hooks"] = hooks
+        else:
+            cfg.pop("hooks", None)
+        real = path.resolve()
+        tmp = real.with_name(real.name + ".dotfiles-tmp")
+        tmp.write_text(json.dumps(cfg, indent=2, ensure_ascii=False) + "\n")
+        if real.exists():
+            shutil.copymode(real, tmp)
+        tmp.replace(real)
+
+
 def user_bus():
     if shutil.which("systemctl") is None:
         return False
@@ -746,6 +802,7 @@ def cmd_install(args):
     apply_removals(manifest, chosen, plan)
     apply_files(manifest, chosen, state, plan)
     apply_settings(manifest, chosen, state, plan)
+    apply_agent_hooks(chosen, previous, plan)
     apply_units(manifest, chosen, previous, plan)
     apply_sddm(chosen, previous, plan)
     apply_multi_user(chosen, args, plan)

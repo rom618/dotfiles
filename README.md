@@ -57,7 +57,11 @@ end-4's own files follow end-4's rules: its installer may overwrite them when th
 commit changes.
 
 The installer never writes agent or ssh configuration (`~/.claude`, `~/.codex`, `~/.agents`,
-`~/.ssh/config`, `~/.config/environment.d`): tools that manage those keep them.
+`~/.ssh/config`, `~/.config/environment.d`): tools that manage those keep them. One exception, only
+if you tick it: `agent-hooks` adds its own hook entries to `~/.claude/settings.json` and
+`~/.codex/hooks.json` (each only if that folder exists), after your own hooks and without touching
+anything else, and removes exactly those entries when you untick it. Codex runs a new hook only
+once you trust it: open `/hooks` in Codex after the install.
 
 ## For agents
 

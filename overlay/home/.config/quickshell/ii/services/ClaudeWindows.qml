@@ -3,6 +3,8 @@ pragma Singleton
 import QtQuick
 import Quickshell
 import Quickshell.Io
+import Quickshell.Wayland
+import Quickshell.Hyprland
 import qs.modules.common
 
 Singleton {
@@ -17,6 +19,11 @@ Singleton {
     property var agents: ({})
     readonly property var rank: ({ "idle": -1, "done": 0, "running": 1, "waiting": 2 })
     property var states: ({})
+    property var cwds: ({})
+    property var subagents: ({})
+    property var unread: ({})
+    readonly property string focusedAddress: ToplevelManager.activeToplevel?.HyprlandToplevel?.address ? `0x${ToplevelManager.activeToplevel.HyprlandToplevel.address}` : ""
+    readonly property var labels: ({ "claude": "Claude", "pi": "pi", "codex": "Codex" })
     property bool installed: false
 
     Process {
@@ -31,6 +38,15 @@ Singleton {
 
     function iconFor(window) {
         return root.icons[window ? (root.agents[window.address] ?? "claude") : "claude"] ?? root.iconPath;
+    }
+
+    function sessionLabel(window) {
+        if (!window || !root.states[window.address])
+            return "";
+        const cwd = root.cwds[window.address] ?? "";
+        const home = Quickshell.env("HOME");
+        const place = cwd === home ? "~" : cwd.split("/").pop();
+        return place ? `${root.labels[root.agentFor(window)]} · ${place}` : root.labels[root.agentFor(window)];
     }
 
     function stateFor(window) {
@@ -49,6 +65,44 @@ Singleton {
         return best;
     }
 
+    function workspaceUnread(workspaceId) {
+        let total = 0;
+        for (const w of HyprlandData.windowList) {
+            if (w.workspace?.id === workspaceId)
+                total += root.unread[w.address] ?? 0;
+        }
+        return total;
+    }
+
+    function countUnread(previous, next) {
+        const counts = {};
+        for (const address in next) {
+            let n = root.unread[address] ?? 0;
+            if (next[address] === "done" && previous[address] && previous[address] !== "done" && address !== root.focusedAddress)
+                n += 1;
+            if (n > 0)
+                counts[address] = n;
+        }
+        root.unread = counts;
+    }
+
+    onFocusedAddressChanged: {
+        if (!root.unread[root.focusedAddress])
+            return;
+        const counts = Object.assign({}, root.unread);
+        delete counts[root.focusedAddress];
+        root.unread = counts;
+    }
+
+    function workspaceSubagents(workspaceId) {
+        let total = 0;
+        for (const w of HyprlandData.windowList) {
+            if (w.workspace?.id === workspaceId)
+                total += root.subagents[w.address] ?? 0;
+        }
+        return total;
+    }
+
     Process {
         id: proc
         running: true
@@ -57,14 +111,19 @@ Singleton {
             onRead: line => {
                 try {
                     const data = JSON.parse(line);
+                    root.countUnread(root.states, data.states ?? {});
                     root.states = data.states ?? {};
                     root.agents = data.agents ?? {};
+                    root.cwds = data.cwds ?? {};
+                    root.subagents = data.subagents ?? {};
                 } catch (e) {}
             }
         }
         onExited: {
             root.states = {};
             root.agents = {};
+            root.cwds = {};
+            root.subagents = {};
             restartTimer.start();
         }
     }
