@@ -416,8 +416,12 @@ ButtonMouseArea {
                         // À l'échelle 1,25 un chiffre tombe entre deux pixels et paraît plus ou moins gras : on cale la pastille sur un pixel entier.
                         function caler() {
                             const g = mapToItem(null, 0, 0);
-                            snapX += Math.round(g.x * root.dpr) / root.dpr - g.x;
-                            snapY += Math.round(g.y * root.dpr) / root.dpr - g.y;
+                            const x0 = g.x - snapX;
+                            const y0 = g.y - snapY;
+                            const nx = Math.round(x0 * root.dpr) / root.dpr - x0;
+                            const ny = Math.round(y0 * root.dpr) / root.dpr - y0;
+                            if (Math.abs(nx - snapX) > 0.001) snapX = nx;
+                            if (Math.abs(ny - snapY) > 0.001) snapY = ny;
                         }
                         onXChanged: Qt.callLater(caler)
                         onYChanged: Qt.callLater(caler)
