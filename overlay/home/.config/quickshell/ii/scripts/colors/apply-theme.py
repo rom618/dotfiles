@@ -1,11 +1,15 @@
 #!/usr/bin/env python3
+import contextlib
+import fcntl
+import hashlib
 import json
 import math
 import os
 import re
+import shutil
 import subprocess
 import sys
-import time
+import tomllib
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -17,6 +21,9 @@ CHOICE_FILE = STATE / "theme-choices.json"
 PREFS_FILE = STATE / "theme-prefs.json"
 SHELL_CONFIG = Path(os.environ.get("XDG_CONFIG_HOME") or Path.home() / ".config") / "illogical-impulse" / "config.json"
 WALLPAPERS = Path(os.environ.get("XDG_DATA_HOME") or Path.home() / ".local" / "share") / "quickshell-themes" / "wallpapers"
+CACHE = Path(os.environ.get("XDG_CACHE_HOME") or Path.home() / ".cache") / "quickshell" / "theme-cache"
+MATUGEN_CONFIG = Path(os.environ.get("XDG_CONFIG_HOME") or Path.home() / ".config") / "matugen" / "config.toml"
+TERMINAL = HERE / "terminal"
 HEX = re.compile(r"^#[0-9A-Fa-f]{6}$")
 
 MODES = ("light", "dark")
@@ -151,20 +158,9 @@ def themes():
     return BUILTIN + found
 
 
-def switchwall(*args, skip_applycolor=False):
-    env = dict(os.environ, II_SKIP_APPLYCOLOR="1") if skip_applycolor else None
-    subprocess.run([str(HERE / "switchwall.sh"), "--noswitch", *args], check=True, env=env,
+def switchwall(*args):
+    subprocess.run([str(HERE / "switchwall.sh"), "--noswitch", *args], check=True,
                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-
-
-def wait_applycolor(timeout=10.0):
-    end = time.monotonic() + timeout
-    while time.monotonic() < end:
-        r = subprocess.run(["pgrep", "-u", str(os.getuid()), "-f", "scripts/colors/applycolor\\.sh"],
-                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        if r.returncode != 0:
-            return
-        time.sleep(0.05)
 
 
 VIDEO_EXT = (".mp4", ".webm", ".mkv", ".avi", ".mov")
@@ -175,25 +171,43 @@ def set_wallpaper(path, mode):
                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 
-def set_wallpaper_path(path):
+def set_wallpaper_path(path, accent=None):
     if str(path).lower().endswith(VIDEO_EXT) or current_wallpaper().lower().endswith(VIDEO_EXT):
         return False
-    r = subprocess.run(["jq", "--arg", "path", str(path), ".background.wallpaperPath = $path", str(SHELL_CONFIG)],
-                       capture_output=True, text=True)
+    return edit_shell_config(path=path, accent=accent)
+
+
+def edit_shell_config(path=None, accent=None):
+    filters = [".background.wallpaperPath = $path"] if path is not None else []
+    filters += [".appearance.palette.accentColor = $accent"] if accent is not None else []
+    r = subprocess.run(["jq", "--arg", "path", str(path), "--arg", "accent", str(accent), " | ".join(filters),
+                        str(SHELL_CONFIG)], capture_output=True, text=True)
     if r.returncode != 0 or not r.stdout.strip():
         return False
-    write_atomic(SHELL_CONFIG, r.stdout)
+    if r.stdout != SHELL_CONFIG.read_text():
+        write_atomic(SHELL_CONFIG, r.stdout)
     return True
 
 
 _AVAILABLE = None
 
 
+def wallpaper_listing():
+    sources = [THEMES / n for n in ("make-wallpapers.py", "photos.json", "private_wallpapers.py")]
+    return CACHE / f"wallpapers-{digest(*(p.read_bytes() if p.is_file() else b'' for p in sources))}.txt"
+
+
 def available_wallpapers():
     global _AVAILABLE
     if _AVAILABLE is None:
-        r = subprocess.run([sys.executable, str(THEMES / "make-wallpapers.py"), "--list"], capture_output=True, text=True)
-        _AVAILABLE = set(r.stdout.split()) if r.returncode == 0 else set()
+        listing = wallpaper_listing()
+        if not listing.is_file():
+            r = subprocess.run([sys.executable, str(THEMES / "make-wallpapers.py"), "--list"], capture_output=True, text=True)
+            if r.returncode != 0:
+                return set()
+            CACHE.mkdir(parents=True, exist_ok=True)
+            write_atomic(listing, r.stdout)
+        _AVAILABLE = set(listing.read_text().split())
     return _AVAILABLE
 
 
@@ -261,44 +275,241 @@ def current_background():
         return ""
 
 
-def override(t):
-    colors = t.get("colors", {})
-    terminal = t.get("terminal", {})
-    scss_path = STATE / "material_colors.scss"
-    wanted = {camel(k): v for k, v in colors.items()}
-    wanted.update(terminal)
+def shell_config():
+    return json.loads(SHELL_CONFIG.read_text()) if SHELL_CONFIG.is_file() else {}
+
+
+def wallpaper_theming():
+    return shell_config().get("appearance", {}).get("wallpaperTheming", {})
+
+
+def digest(*parts):
+    h = hashlib.sha256()
+    for part in parts:
+        h.update(part if isinstance(part, bytes) else str(part).encode())
+        h.update(b"\0")
+    return h.hexdigest()[:20]
+
+
+def matugen_templates():
+    cfg = tomllib.loads(MATUGEN_CONFIG.read_text())
+    return cfg.get("config", {}), {name: (Path(t["input_path"]).expanduser(), Path(t["output_path"]).expanduser())
+                                   for name, t in cfg.get("templates", {}).items()}
+
+
+def venv():
+    return Path(os.path.expandvars(os.environ["ILLOGICAL_IMPULSE_VIRTUAL_ENV"])).expanduser()
+
+
+_INPUTS = None
+
+
+def inputs_digest():
+    """Everything a prepared theme depends on apart from the theme file and the mode."""
+    global _INPUTS
+    if _INPUTS is None:
+        _, templates = matugen_templates()
+        files = [Path(__file__).resolve(), HERE / "generate_colors_material.py", HERE / "applycolor.sh",
+                 TERMINAL / "kitty-theme.conf", TERMINAL / "sequences.txt", TERMINAL / "scheme-base.json",
+                 MATUGEN_CONFIG, *(src for src, _ in templates.values())]
+        matugen = Path(shutil.which("matugen")).stat()
+        packages = [p.stat().st_mtime_ns for p in sorted((venv() / "lib").glob("python*/site-packages"))]
+        theming = wallpaper_theming()
+        live = []
+        if theming.get("enableAppsAndShell") is False:
+            live = [(STATE / "material_colors.scss").read_bytes(), (STATE / "colors.json").read_bytes()]
+        _INPUTS = digest(*(f.read_bytes() for f in files), matugen.st_mtime_ns, matugen.st_size, *packages,
+                         json.dumps(theming, sort_keys=True), *live)
+    return _INPUTS
+
+
+def entry_dir(key, mode):
+    return CACHE / f"{key}-{mode}-{digest(inputs_digest(), (THEMES / f'{key}.json').read_bytes(), mode)}"
+
+
+def override_scss(scss, pal):
+    wanted = {camel(k): v for k, v in pal.get("colors", {}).items()}
+    wanted.update(pal.get("terminal", {}))
     lines = []
-    for line in scss_path.read_text().splitlines():
+    for line in scss.splitlines():
         m = re.match(r"^\$([A-Za-z0-9_]+):\s*([^;]*);", line)
         if m and m.group(1) in wanted:
             line = f"${m.group(1)}: {wanted[m.group(1)]};"
         lines.append(line)
-    wait_applycolor()
-    write_atomic(scss_path, "\n".join(lines) + "\n")
-    subprocess.run([str(HERE / "applycolor.sh")], check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    wait_applycolor()
-    kitty_overrides(t.get("kitty", {}))
-    json_path = STATE / "colors.json"
-    data = json.loads(json_path.read_text())
-    data.update({k: v.lower() for k, v in colors.items()})
-    write_atomic(json_path, json.dumps(data, indent=2) + "\n")
+    return "\n".join(lines) + "\n"
 
 
-def kitty_overrides(values):
-    path = STATE / "terminal" / "kitty-theme.conf"
-    if not values or not path.exists():
-        return
+def fill_template(text, scss):
+    """What applycolor.sh's sed loop does: each `$name #` becomes the color without its #."""
+    for line in scss.splitlines():
+        m = re.match(r"^(\$[A-Za-z0-9_]+):\s*([^;]*);", line)
+        if m:
+            text = text.replace(f"{m.group(1)} #", m.group(2).removeprefix("#"))
+    return text
+
+
+def kitty_overrides(conf, values):
     lines = []
-    for line in path.read_text().splitlines():
+    for line in conf.splitlines():
         key = line.split(None, 1)[0] if line.strip() else ""
         if key in values:
             line = f"{key:<22}{values[key]}"
         lines.append(line)
-    write_atomic(path, "\n".join(lines) + "\n")
+    return "\n".join(lines) + "\n"
+
+
+def run_matugen(build, seed, mode):
+    settings, templates = matugen_templates()
+    toml = ["[config]"] + [f"{k} = {json.dumps(v)}" for k, v in settings.items()]
+    for name, (src, _) in templates.items():
+        toml += ["", f"[templates.{name}]", f"input_path = {json.dumps(str(src))}",
+                 f"output_path = {json.dumps(str(build / ('matugen-' + name)))}"]
+    (build / "matugen.toml").write_text("\n".join(toml) + "\n")
+    subprocess.run(["matugen", "-c", str(build / "matugen.toml"), "--source-color-index", "0", "color", "hex", seed,
+                    "--mode", mode, "--type", "scheme-tonal-spot"], check=True, cwd=build,
+                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    return {str(dst): f"matugen-{name}" for name, (_, dst) in templates.items()}
+
+
+def generate_scss(build, seed, mode):
+    props = wallpaper_theming().get("terminalGenerationProps", {})
+    args = ["--color", seed, "--mode", "dark" if props.get("forceDarkMode") is True else mode,
+            "--scheme", "scheme-tonal-spot", "--termscheme", str(TERMINAL / "scheme-base.json"), "--blend_bg_fg",
+            "--cache", str(build / "color.txt")]
+    for prop, flag in (("harmony", "--harmony"), ("harmonizeThreshold", "--harmonize_threshold"),
+                       ("termFgBoost", "--term_fg_boost")):
+        if props.get(prop) is not None:
+            args += [flag, str(props[prop])]
+    return subprocess.run([str(venv() / "bin" / "python3"), str(HERE / "generate_colors_material.py"), *args],
+                          check=True, capture_output=True, text=True).stdout
+
+
+def prepare(key, mode):
+    """Every file a switch to this theme and mode writes, built in the cache without touching the desktop."""
+    entry = entry_dir(key, mode)
+    if (entry / "manifest.json").is_file():
+        return entry
+    t = load(key)
+    CACHE.mkdir(parents=True, exist_ok=True)
+    build = CACHE / f".prep-{os.getpid()}-{key}-{mode}"
+    shutil.rmtree(build, ignore_errors=True)
+    build.mkdir()
+    if wallpaper_theming().get("enableAppsAndShell") is False:
+        files = {}
+        scss = (STATE / "material_colors.scss").read_text()
+        colors_text = (STATE / "colors.json").read_text()
+    else:
+        files = run_matugen(build, t["seed"], mode)
+        scss = generate_scss(build, t["seed"], mode)
+        colors_text = (build / files.pop(str(STATE / "colors.json"))).read_text()
+    pal = palette(t, mode)
+    if pal:
+        scss = override_scss(scss, pal)
+        colors = json.loads(colors_text)
+        colors.update({k: v.lower() for k, v in pal.get("colors", {}).items()})
+        colors_text = json.dumps(colors, indent=2) + "\n"
+    kitty = fill_template((TERMINAL / "kitty-theme.conf").read_text(), scss)
+    if pal and pal.get("kitty"):
+        kitty = kitty_overrides(kitty, pal["kitty"])
+    alpha = re.search(r"^term_alpha=(\d+)", (HERE / "applycolor.sh").read_text(), re.M).group(1)
+    sequences = fill_template((TERMINAL / "sequences.txt").read_text(), scss).replace("$alpha", alpha)
+    for name, text in (("material_colors.scss", scss), ("kitty-theme.conf", kitty), ("sequences.txt", sequences),
+                       ("colors.json", colors_text)):
+        (build / name).write_text(text)
+    manifest = {"files": files | {str(STATE / "material_colors.scss"): "material_colors.scss"},
+                "terminal": {str(STATE / "terminal" / "kitty-theme.conf"): "kitty-theme.conf",
+                             str(STATE / "terminal" / "sequences.txt"): "sequences.txt"},
+                "colors": {str(STATE / "colors.json"): "colors.json"}}
+    (build / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
+    try:
+        build.rename(entry)
+    except OSError:
+        if not (entry / "manifest.json").is_file():
+            raise
+        shutil.rmtree(build)
+    return entry
+
+
+def install(entry, group):
+    for dst, name in json.loads((entry / "manifest.json").read_text())[group].items():
+        dst = Path(dst).resolve()
+        data = (entry / name).read_bytes()
+        if dst.is_file() and dst.read_bytes() == data:
+            continue
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        tmp = dst.with_name(dst.name + ".tmp")
+        tmp.write_bytes(data)
+        tmp.replace(dst)
+
+
+def recolor_terminals():
+    """kitty windows in parallel, one set-colors each (--configured also sets the current colors); other
+    terminals get the escape sequences on their pty, as applycolor.sh does."""
+    conf = STATE / "terminal" / "kitty-theme.conf"
     pids = subprocess.run(["pidof", "kitty"], capture_output=True, text=True).stdout.split()
-    for pid in pids:
-        for extra in (["--configured"], []):
-            subprocess.run(["kitty", "@", "--to", f"unix:@mykitty-{pid}", "set-colors", "--all", *extra, str(path)],
+    procs = [subprocess.Popen(["kitten", "@", "--to", f"unix:@mykitty-{pid}", "set-colors", "--all", "--configured",
+                               str(conf)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL) for pid in pids]
+    sequences = (STATE / "terminal" / "sequences.txt").read_bytes()
+    for pts in Path("/dev/pts").iterdir():
+        if pts.name.isdigit():
+            with contextlib.suppress(OSError):
+                fd = os.open(pts, os.O_WRONLY | os.O_NOCTTY | os.O_NONBLOCK)
+                try:
+                    os.write(fd, sequences)
+                finally:
+                    os.close(fd)
+    return procs
+
+
+def background(*cmd, stdout=subprocess.DEVNULL, niceness=10):
+    subprocess.Popen(["nice", "-n", str(niceness), *cmd], start_new_session=True, stdin=subprocess.DEVNULL,
+                     stdout=stdout, stderr=subprocess.DEVNULL)
+
+
+def post_process():
+    """What switchwall.sh starts after the colors, off the critical path."""
+    cfg = shell_config()
+    if cfg.get("appearance", {}).get("wallpaperTheming", {}).get("enableQtApps") is not False:
+        background(str(MATUGEN_CONFIG.parent / "templates" / "kde" / "kde-material-you-colors-wrapper.sh"),
+                   "--scheme-variant", "scheme-tonal-spot")
+    background(str(HERE / "code" / "material-code-set-color.sh"))
+    if cfg.get("background", {}).get("widgets", {}).get("clock", {}).get("cookie", {}).get("aiStyling") is True:
+        category = STATE / "wallpaper" / "category.txt"
+        with category.open("w") as out:
+            background(str(HERE.parent / "ai" / "gemini-categorize-wallpaper.sh"), current_wallpaper(), stdout=out)
+
+
+def prepare_in_background():
+    background("ionice", "-c3", sys.executable, str(Path(__file__).resolve()), "--prepare", niceness=19)
+
+
+def prepare_all():
+    CACHE.mkdir(parents=True, exist_ok=True)
+    with (CACHE / ".lock").open("w") as lock:
+        try:
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            return
+        try:
+            current = json.loads(STATE_FILE.read_text())
+        except (OSError, ValueError):
+            current = {}
+        keys = [t["key"] for t in themes() if t["key"] not in {b["key"] for b in BUILTIN}]
+        mode = current.get("mode") if current.get("mode") in MODES else preferred_mode()
+        other = "dark" if mode == "light" else "light"
+        first = [(current["theme"], other)] if current.get("theme") in keys else []
+        wanted = {".lock", wallpaper_listing().name}
+        for key, m in first + [(k, mode) for k in keys] + [(k, other) for k in keys]:
+            wanted.add(prepare(key, m).name)
+        for path in CACHE.iterdir():
+            pid = path.name.split("-")[1] if path.name.startswith(".prep-") else None
+            if pid and Path(f"/proc/{pid}").exists():
+                continue
+            if path.name not in wanted:
+                shutil.rmtree(path) if path.is_dir() else path.unlink()
+        missing = sorted({n for k in keys for n in wallpaper_names(load(k)) if not (WALLPAPERS / f"{n}.jpg").is_file()})
+        if missing:
+            subprocess.run([sys.executable, str(THEMES / "make-wallpapers.py"), *missing],
                            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 
@@ -311,28 +522,31 @@ def shell_hold(on):
 
 
 def apply(key, wallpaper_step=None, mode=None):
-    shell_hold(True)
-    try:
-        apply_held(key, wallpaper_step, mode)
-    finally:
-        shell_hold(False)
-
-
-def apply_held(key, wallpaper_step=None, mode=None):
     if key in ALIASES:
         key, mode = ALIASES[key][0], mode or ALIASES[key][1]
     if mode not in MODES:
         mode = preferred_mode()
-    builtin = {b["key"]: b for b in BUILTIN}
-    if key in builtin:
-        prev = previous_wallpaper()
-        STATE_FILE.unlink(missing_ok=True)
-        if prev and is_theme_wallpaper(current_wallpaper()) and not set_wallpaper_path(prev):
-            set_wallpaper(prev, mode)
-        switchwall("--mode", mode, "--type", "auto", "--color", "clear")
-        return
+    if key in {b["key"] for b in BUILTIN}:
+        shell_hold(True)
+        try:
+            apply_wallpaper_colors(mode)
+        finally:
+            shell_hold(False)
+    else:
+        apply_theme(key, wallpaper_step, mode)
+
+
+def apply_wallpaper_colors(mode):
+    prev = previous_wallpaper()
+    STATE_FILE.unlink(missing_ok=True)
+    if prev and is_theme_wallpaper(current_wallpaper()) and not set_wallpaper_path(prev):
+        set_wallpaper(prev, mode)
+    switchwall("--mode", mode, "--type", "auto", "--color", "clear")
+
+
+def apply_theme(key, wallpaper_step, mode):
+    """Installs the prepared files; no shell hold needed since colors.json is written once, atomically."""
     t = load(key)
-    pal = palette(t, mode)
     names = wallpaper_names(t)
     choices = load_choices()
     index = int(choices.get(key, 0)) if names else 0
@@ -346,31 +560,47 @@ def apply_held(key, wallpaper_step=None, mode=None):
     if names:
         choices[key] = index
         write_atomic(CHOICE_FILE, json.dumps(choices) + "\n")
+    entry = prepare(key, mode)
+    running = []
+    if not SHELL_CONFIG.is_file() or wallpaper_theming().get("enableTerminal") is True:
+        install(entry, "terminal")
+        running = recolor_terminals()
     wallpaper = theme_wallpaper(names[index]) if names else None
     if wallpaper:
         remember_wallpaper()
-        if Path(current_wallpaper() or "/").resolve() != wallpaper.resolve() and not set_wallpaper_path(wallpaper):
+    moved = bool(wallpaper) and Path(current_wallpaper() or "/").resolve() != wallpaper.resolve()
+    if not (moved and set_wallpaper_path(wallpaper, accent=t["seed"])):
+        if moved:
             set_wallpaper(wallpaper, mode)
-    switchwall("--mode", mode, "--type", "scheme-tonal-spot", "--color", t["seed"], skip_applycolor=bool(pal))
-    if pal:
-        override(pal)
-    else:
-        wait_applycolor()
+        edit_shell_config(accent=t["seed"])
+    install(entry, "files")
+    install(entry, "colors")
+    write_atomic(STATE_FILE, json.dumps({"theme": key, "mode": mode, "decor": t.get("decor", ""),
+                                         "wallpaper_index": index, "wallpapers": len(names),
+                                         "background": current_background()}) + "\n")
+    scheme = "prefer-dark" if mode == "dark" else "prefer-light"
+    gtk = "adw-gtk3-dark" if mode == "dark" else "adw-gtk3"
+    running += [subprocess.Popen(["gsettings", "set", "org.gnome.desktop.interface", k, v])
+                for k, v in (("color-scheme", scheme), ("gtk-theme", gtk))]
     missing = [n for n in names if not (WALLPAPERS / f"{n}.jpg").is_file()]
     if missing:
         subprocess.Popen([sys.executable, str(THEMES / "make-wallpapers.py"), *missing], start_new_session=True,
                          stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    write_atomic(STATE_FILE, json.dumps({"theme": key, "mode": mode, "decor": t.get("decor", ""),
-                                         "wallpaper_index": index, "wallpapers": len(names),
-                                         "background": current_background()}) + "\n")
+    post_process()
+    for p in running:
+        p.wait()
 
 
 def main():
     args = sys.argv[1:]
     if args == ["--list"]:
         print(json.dumps(themes()))
+        prepare_in_background()
         return 0
-    usage = "usage: apply-theme.py --list | THEME [--mode light|dark] [--next-wallpaper | --prev-wallpaper | --wallpaper N]"
+    if args == ["--prepare"]:
+        prepare_all()
+        return 0
+    usage = "usage: apply-theme.py --list | --prepare | THEME [--mode light|dark] [--next-wallpaper | --prev-wallpaper | --wallpaper N]"
     if not args or args[0].startswith("-"):
         print(usage, file=sys.stderr)
         return 2
@@ -388,6 +618,7 @@ def main():
             print(usage, file=sys.stderr)
             return 2
     apply(key, step, mode)
+    prepare_in_background()
     return 0
 
 

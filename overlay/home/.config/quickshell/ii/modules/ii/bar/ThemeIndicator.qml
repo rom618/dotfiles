@@ -70,7 +70,6 @@ MouseArea {
         root.slow = false;
         slowTimer.restart();
         giveUpTimer.restart();
-        MaterialThemeLoader.hold = true;
         applyProc.command = command;
         applyProc.running = true;
     }
