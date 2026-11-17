@@ -398,7 +398,6 @@ ButtonMouseArea {
                             verticalAlignment: Text.AlignVCenter
                             visible: claudeBadge.counting
                             text: Math.min(wsApp.unread, 9)
-                            renderType: Text.NativeRendering
                             font.pixelSize: 8
                             font.weight: Font.Normal
                             color: Appearance.m3colors.m3onPrimary
@@ -453,7 +452,6 @@ ButtonMouseArea {
                             horizontalAlignment: Text.AlignHCenter
                             verticalAlignment: Text.AlignVCenter
                             text: Math.min(wsApp.subagents, 9)
-                            renderType: Text.NativeRendering
                             font.pixelSize: 10
                             font.weight: Font.Normal
                             color: Appearance.m3colors.m3onSecondaryContainer

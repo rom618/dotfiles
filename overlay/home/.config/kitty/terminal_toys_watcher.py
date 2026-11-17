@@ -13,7 +13,7 @@ SCRIPT = Path.home() / '.config/quickshell/ii/scripts/terminal-toys.py'
 spec = importlib.util.spec_from_file_location('terminal_toys', SCRIPT)
 toys = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(toys)
-font = ImageFont.truetype('/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf', 12)
+font = ImageFont.truetype('/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf', 24)
 entries = {}
 preferences = {}
 stamp = None
@@ -21,9 +21,9 @@ stamp = None
 
 @lru_cache(maxsize=512)
 def glyph(ch, color):
-    image = Image.new('RGBA', (8, 14))
+    image = Image.new('RGBA', (16, 28))
     ImageDraw.Draw(image).text((0, 0), ch, font=font, fill=toys.COLORS[color],
-                               stroke_width=1, stroke_fill='#0d1220')
+                               stroke_width=2, stroke_fill='#0d1220')
     return image
 
 
@@ -31,13 +31,13 @@ def glyph(ch, color):
 def picture(scene, state, step):
     canvas = toys.frame(scene, step/10, state)
     rows = [row[24:56] for row in canvas.cells[4:16]]
-    image = Image.new('RGBA', (len(rows[0])*8, len(rows)*14))
+    image = Image.new('RGBA', (len(rows[0])*16, len(rows)*28))
     for y, row in enumerate(rows):
         for x, (ch, color) in enumerate(row):
             if ch != ' ':
-                image.alpha_composite(glyph(ch, color), (x*8, y*14))
+                image.alpha_composite(glyph(ch, color), (x*16, y*28))
     image = image.crop(image.getbbox())
-    image.thumbnail((180, 80), Image.Resampling.LANCZOS)
+    image.thumbnail((360, 160), Image.Resampling.LANCZOS)
     padded = Image.new('RGBA', (image.width+16, image.height+12))
     padded.paste(image, (0, 12))
     output = BytesIO()
