@@ -364,32 +364,14 @@ ButtonMouseArea {
 
                     Rectangle {
                         id: claudeBadge
-                        property real snapX: 0
-                        property real snapY: 0
-                        // À l'échelle 1,25 un chiffre tombe entre deux pixels et paraît plus ou moins gras : on cale la pastille sur un pixel entier.
-                        function caler() {
-                            const g = mapToItem(null, 0, 0);
-                            snapX += Math.round(g.x * root.dpr) / root.dpr - g.x;
-                            snapY += Math.round(g.y * root.dpr) / root.dpr - g.y;
-                        }
-                        onXChanged: Qt.callLater(caler)
-                        onYChanged: Qt.callLater(caler)
-                        onVisibleChanged: if (visible) Qt.callLater(caler)
-                        Component.onCompleted: Qt.callLater(caler)
-                        Timer {
-                            interval: 250
-                            repeat: true
-                            running: parent.visible
-                            onTriggered: parent.caler()
-                        }
                         readonly property bool waiting: wsApp.claudeState === "waiting"
                         readonly property bool counting: !waiting && wsApp.unread > 0
                         visible: wsApp.iconsShown && (waiting || counting || wsApp.claudeState === "done")
                         anchors {
                             right: appIcon.right
                             bottom: appIcon.bottom
-                            rightMargin: -3 - snapX
-                            bottomMargin: -3 - snapY
+                            rightMargin: -3
+                            bottomMargin: -3
                         }
                         width: 10
                         height: 10
