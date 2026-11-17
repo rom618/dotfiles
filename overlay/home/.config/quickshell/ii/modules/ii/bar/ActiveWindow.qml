@@ -16,7 +16,7 @@ Item {
     property bool focusingThisMonitor: HyprlandData.activeWorkspace?.monitor == monitor?.name
     property var biggestWindow: HyprlandData.biggestWindowForWorkspace(HyprlandData.monitors[root.monitor?.id]?.activeWorkspace.id)
     // share:begin bar-agent-usage
-    readonly property bool showingActive: root.focusingThisMonitor && root.activeWindow?.activated && root.biggestWindow
+    readonly property bool showingActive: !!(root.focusingThisMonitor && root.activeWindow?.activated && root.biggestWindow)
     readonly property var shownWindow: root.showingActive ? HyprlandData.windowList.find(w => w.address === root.activeWindowAddress) : root.biggestWindow
     readonly property string agentLabel: ClaudeWindows.sessionLabel(root.shownWindow)
     // share:end
