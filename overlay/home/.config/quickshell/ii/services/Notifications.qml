@@ -160,6 +160,10 @@ Singleton {
         persistenceSupported: true
 
         onNotification: (notification) => {
+            const now = Date.now();
+            if (root.list.some(n => now - n.time < 3000 && n.appName === notification.appName
+                    && n.summary === notification.summary && n.body === notification.body))
+                return;
             notification.tracked = true
             const newNotifObject = notifComponent.createObject(root, {
                 "notificationId": notification.id + root.idOffset,

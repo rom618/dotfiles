@@ -10,7 +10,13 @@
         "mint-96m7md"
     ],
     "decor": "bubbles",
-    "swatch": ["#22577A", "#38A3A5", "#57CC99", "#80ED99", "#C7F9CC"],
+    "swatch": [
+        "#22577A",
+        "#38A3A5",
+        "#57CC99",
+        "#80ED99",
+        "#C7F9CC"
+    ],
     "colors": {
         "background": "#C7F9CC",
         "surface": "#C7F9CC",
@@ -66,5 +72,65 @@
         "selection_background": "#38A3A5",
         "selection_foreground": "#04201F",
         "cursor": "#80ED99"
+    },
+    "palettes": {
+        "dark": {
+            "colors": {
+                "background": "#001829",
+                "surface": "#001829",
+                "surface_dim": "#00111F",
+                "surface_bright": "#064163",
+                "surface_container_lowest": "#000F1C",
+                "surface_container_low": "#001F34",
+                "surface_container": "#002942",
+                "surface_container_high": "#003451",
+                "surface_container_highest": "#023F60",
+                "on_background": "#C7F9CC",
+                "on_surface": "#C7F9CC",
+                "surface_variant": "#003451",
+                "on_surface_variant": "#80ED99",
+                "outline": "#38A3A5",
+                "outline_variant": "#22577A",
+                "inverse_surface": "#C7F9CC",
+                "inverse_on_surface": "#002942",
+                "inverse_primary": "#22577A",
+                "surface_tint": "#80ED99",
+                "primary": "#80ED99",
+                "on_primary": "#001829",
+                "primary_container": "#22577A",
+                "on_primary_container": "#C7F9CC",
+                "secondary": "#57CC99",
+                "on_secondary": "#001829",
+                "secondary_container": "#005354",
+                "on_secondary_container": "#C7F9CC",
+                "tertiary": "#38A3A5",
+                "on_tertiary": "#001323",
+                "tertiary_container": "#004445",
+                "on_tertiary_container": "#C7F9CC"
+            },
+            "terminal": {
+                "term0": "#0E2E3A",
+                "term1": "#FF8A9A",
+                "term2": "#80ED99",
+                "term3": "#F0DC82",
+                "term4": "#7CC0F0",
+                "term5": "#D2AEF5",
+                "term6": "#57CCC4",
+                "term7": "#DDF9E0",
+                "term8": "#6E9EA3",
+                "term9": "#FFA9B5",
+                "term10": "#A8F5BB",
+                "term11": "#F7EAAA",
+                "term12": "#A6D6F7",
+                "term13": "#E3CBFA",
+                "term14": "#8EE3DC",
+                "term15": "#F4FFF5"
+            },
+            "kitty": {
+                "selection_background": "#38A3A5",
+                "selection_foreground": "#04201F",
+                "cursor": "#80ED99"
+            }
+        }
     }
 }

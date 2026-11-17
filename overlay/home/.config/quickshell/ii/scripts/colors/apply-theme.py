@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import json
+import math
 import os
 import re
 import subprocess
@@ -45,12 +46,76 @@ def load(key):
     return t
 
 
+def to_oklch(hexcolor):
+    def lin(c):
+        return c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4
+    r, g, b = (lin(int(hexcolor[i:i + 2], 16) / 255) for i in (1, 3, 5))
+    l_ = (0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b) ** (1 / 3)
+    m_ = (0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b) ** (1 / 3)
+    s_ = (0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b) ** (1 / 3)
+    L = 0.2104542553 * l_ + 0.7936177850 * m_ - 0.0040720468 * s_
+    a = 1.9779984951 * l_ - 2.4285922050 * m_ + 0.4505937099 * s_
+    b = 0.0259040371 * l_ + 0.7827717662 * m_ - 0.8086757660 * s_
+    return L, math.hypot(a, b), math.atan2(b, a)
+
+
+def from_oklch(L, C, h):
+    def rgb(c):
+        a, b = c * math.cos(h), c * math.sin(h)
+        l_ = (L + 0.3963377774 * a + 0.2158037573 * b) ** 3
+        m_ = (L - 0.1055613458 * a - 0.0638541728 * b) ** 3
+        s_ = (L - 0.0894841775 * a - 1.2914855480 * b) ** 3
+        return (4.0767416621 * l_ - 3.3077115913 * m_ + 0.2309699292 * s_,
+                -1.2684380046 * l_ + 2.6097574011 * m_ - 0.3413193965 * s_,
+                -0.0041960863 * l_ - 0.7034186147 * m_ + 1.7076147010 * s_)
+
+    def inside(c):
+        return all(-1e-4 <= v <= 1 + 1e-4 for v in rgb(c))
+
+    if not inside(C):
+        lo, hi = 0.0, C
+        for _ in range(24):
+            mid = (lo + hi) / 2
+            lo, hi = (mid, hi) if inside(mid) else (lo, mid)
+        C = lo
+
+    def enc(c):
+        c = min(max(c, 0.0), 1.0)
+        return round(255 * (c * 12.92 if c <= 0.0031308 else 1.055 * c ** (1 / 2.4) - 0.055))
+    return "#{:02X}{:02X}{:02X}".format(*(enc(v) for v in rgb(C)))
+
+
+def flip_lightness(L, to, bg):
+    if to == "light":
+        return 0.95 - (L - bg) if L < 0.5 else 1.15 - L
+    return 0.2 + (bg - L) if L > 0.72 else 1.15 - L
+
+
+def flip_palette(pal, to):
+    """The theme's own palette in the other mode: OKLCH lightness flipped around its background, hue and chroma
+    kept, light surfaces tinted; the terminal keeps its designed colors."""
+    colors = pal.get("colors", {})
+    bg = to_oklch(colors["background"])[0]
+    theme_hue = to_oklch(colors["primary"])[2]
+    out = {g: dict(v) for g, v in pal.items() if g != "colors"}
+    out["colors"] = {}
+    for name, value in colors.items():
+        L, C, h = to_oklch(value)
+        L = min(max(flip_lightness(L, to, bg), 0.0), 1.0)
+        if to == "light" and L > 0.8:
+            h = h if C >= 0.01 else theme_hue
+            C = max(C, 0.045)
+        out["colors"][name] = from_oklch(L, C, h)
+    return out
+
+
 def palette(t, mode):
     pals = t.get("palettes") or {}
     if mode in pals:
         return pals[mode]
-    if t.get("mode", "dark") == mode and t.get("colors"):
-        return {g: t[g] for g in PALETTE_GROUPS if g in t}
+    if t.get("colors"):
+        native = {g: t[g] for g in PALETTE_GROUPS if g in t}
+        return native if t.get("mode", "dark") == mode else flip_palette(native, mode)
     return None
 
 
