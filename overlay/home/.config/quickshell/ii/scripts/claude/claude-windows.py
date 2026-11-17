@@ -132,12 +132,14 @@ def running_subagents(session_id):
     """Sous-agents en cours : signalés par le hook (départ sans fin), sinon d'après leur journal."""
     now = time.time()
     try:
-        alive = {f.name for f in (SUBAGENTS_DIR / session_id).iterdir() if f.stat().st_mtime >= now - SUBAGENT_MAX_AGE}
+        marks = [f for f in (SUBAGENTS_DIR / session_id).iterdir() if f.stat().st_mtime >= now - SUBAGENT_MAX_AGE]
     except OSError:
-        alive = set()
+        marks = []
+    ended = {f.name.removesuffix(".done") for f in marks if f.name.endswith(".done")}
+    alive = {f.name for f in marks if not f.name.endswith(".done")} - ended
     for f in Path.home().glob(f".claude/projects/*/{session_id}/subagents/agent-*.jsonl"):
         agent = f.stem.removeprefix("agent-")
-        if agent in alive:
+        if agent in alive or agent in ended:
             continue
         try:
             if now - f.stat().st_mtime < SUBAGENT_SILENT_MAX and transcript_running(f):

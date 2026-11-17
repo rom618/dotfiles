@@ -10,8 +10,9 @@ dossier = Path(os.environ.get("XDG_RUNTIME_DIR") or f"/run/user/{os.getuid()}") 
 agent = entree.get("agent_id")
 if agent:
     fichier = dossier / agent
+    dossier.mkdir(parents=True, exist_ok=True)
     if entree["hook_event_name"] == "SubagentStart":
-        dossier.mkdir(parents=True, exist_ok=True)
         fichier.touch()
     else:
         fichier.unlink(missing_ok=True)
+        (dossier / f"{agent}.done").touch()
