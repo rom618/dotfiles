@@ -1,0 +1,32 @@
+{
+    "dusk_minutes": 60,
+    "seasons": {
+        "spring": "03-20",
+        "summer": "06-21",
+        "autumn": "09-22",
+        "winter": "12-21"
+    },
+    "rules": [
+        { "theme": "arctic", "weather": ["snow"], "why": "snowing" },
+        { "theme": "neon", "weather": ["rain", "storm"], "phase": ["dusk", "night"], "why": "rainy evening" },
+        { "theme": "midnight", "phase": ["night"], "why": "night" },
+        { "theme": "lavender", "phase": ["dusk"], "season": ["summer"], "why": "summer evening" },
+        { "theme": "lavender", "phase": ["dusk"], "temp_min": 18, "why": "warm evening" },
+        { "theme": "ember", "phase": ["dusk"], "why": "cold evening" },
+        { "theme": "ocean", "weather": ["rain", "storm"], "why": "rainy day" },
+        { "theme": "desert", "temp_min": 28, "why": "hot day" },
+        { "theme": "arctic", "temp_max": 2, "why": "freezing day" },
+        { "theme": "sakura", "from": "03-20", "to": "04-30", "why": "early spring" },
+        { "theme": "mint", "from": "05-01", "to": "06-20", "why": "late spring" },
+        { "theme": "ocean", "season": ["summer"], "why": "summer" },
+        { "theme": "autumn", "from": "09-22", "to": "11-10", "why": "autumn" },
+        { "theme": "forest", "from": "11-11", "to": "12-20", "why": "late autumn" },
+        { "theme": "arctic", "season": ["winter"], "why": "winter" }
+    ],
+    "weather_codes": {
+        "snow": [179, 182, 185, 227, 230, 281, 284, 311, 314, 317, 320, 323, 326, 329, 332, 335, 338, 350, 362, 365, 368, 371, 374, 377, 392, 395],
+        "rain": [176, 263, 266, 293, 296, 299, 302, 305, 308, 353, 356, 359],
+        "storm": [200, 386, 389],
+        "fog": [143, 248, 260]
+    }
+}

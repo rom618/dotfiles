@@ -33,9 +33,17 @@ MouseArea {
         return "";
     }
 
+    property string lastCurrent: ""
+    property bool settling: false
+    onCurrentChanged: if (root.current !== "") root.lastCurrent = root.current
+    readonly property string shown: root.current === "" && (root.pending !== "" || root.settling) ? (root.applied.theme || root.lastCurrent) : root.current
+
+    readonly property bool autoThemeOn: ThemeAuto.enabled
+    readonly property bool ambianceOn: Ambiance.enabled
+
     property var prefs: ({})
     readonly property bool particlesOn: root.prefs.particles !== false
-    readonly property bool hasDecor: !!root.applied.decor && root.applied.theme === root.current
+    readonly property bool hasDecor: !!root.applied.decor && root.applied.theme === root.shown
 
     readonly property string modePref: ["light", "dark", "auto"].includes(root.prefs.mode) ? root.prefs.mode : ""
     readonly property string currentMode: Appearance.m3colors.darkmode ? "dark" : "light"
@@ -62,11 +70,13 @@ MouseArea {
         root.autoTried = "";
         const target = mode === "auto" ? root.autoMode : mode;
         if (target !== root.currentMode)
-            root.run("mode", [root.script, root.current || "default", "--mode", target]);
+            root.run("mode", [root.script, root.shown || "default", "--mode", target]);
     }
 
     function run(tag, command) {
         root.pending = tag;
+        root.settling = true;
+        settleTimer.stop();
         root.slow = false;
         slowTimer.restart();
         giveUpTimer.restart();
@@ -79,7 +89,7 @@ MouseArea {
             return;
         root.autoTried = root.autoMode;
         root.pendingMode = "auto";
-        root.run("mode", [root.script, root.current || "default", "--mode", root.autoMode]);
+        root.run("mode", [root.script, root.shown || "default", "--mode", root.autoMode]);
     }
 
     onAutoModeChanged: autoTimer.restart()
@@ -107,17 +117,19 @@ MouseArea {
         }
     }
 
-    readonly property int wallpaperCount: root.applied.theme && root.applied.theme === root.current ? (root.applied.wallpapers ?? 0) : 0
+    readonly property int wallpaperCount: root.applied.theme && root.applied.theme === root.shown ? (root.applied.wallpapers ?? 0) : 0
 
     function stepWallpaper(direction) {
         if (root.pending !== "" || root.wallpaperCount < 2)
             return;
-        root.run("wallpaper", [root.script, root.current, direction > 0 ? "--next-wallpaper" : "--prev-wallpaper", "--mode", root.wantedMode]);
+        root.run("wallpaper", [root.script, root.shown, direction > 0 ? "--next-wallpaper" : "--prev-wallpaper", "--mode", root.wantedMode]);
     }
 
     function apply(t) {
-        if (root.pending !== "" || t.key === root.current)
+        if (root.pending !== "" || t.key === root.shown)
             return;
+        if (ThemeAuto.enabled)
+            ThemeAuto.setEnabled(false);
         root.run(t.key, [root.script, t.key, "--mode", root.wantedMode]);
     }
 
@@ -163,6 +175,7 @@ MouseArea {
     function done() {
         MaterialThemeLoader.hold = false;
         root.pending = "";
+        settleTimer.restart();
         root.slow = false;
         slowTimer.stop();
         giveUpTimer.stop();
@@ -183,9 +196,41 @@ MouseArea {
     }
 
     Timer {
+        id: settleTimer
+        interval: 2500
+        onTriggered: root.settling = false
+    }
+
+    property rect menuRect: Qt.rect(0, 0, 0, 0)
+
+    Timer {
         interval: 500
-        running: root.menuOpen && !root.containsMouse && !root.menuHovered && root.pending === ""
-        onTriggered: root.menuOpen = false
+        running: root.menuOpen && !root.containsMouse && !root.menuHovered && root.pending === "" && !root.settling
+        onTriggered: if (!pointerCheck.running) pointerCheck.running = true
+    }
+
+    Process {
+        id: pointerCheck
+        command: ["hyprctl", "cursorpos", "-j"]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                let p = null;
+                try {
+                    p = JSON.parse(text);
+                } catch (e) {}
+                const win = root.QsWindow;
+                const scr = win?.window?.screen;
+                const icon = win ? win.mapFromItem(root, 0, 0) : Qt.point(0, 0);
+                const ox = scr?.x ?? 0;
+                const oy = scr?.y ?? 0;
+                const m = root.menuRect;
+                const inside = (x, y, w, h) => p && p.x >= x - 4 && p.x <= x + w + 4 && p.y >= y - 4 && p.y <= y + h + 4;
+                if (p && (inside(m.x, m.y, m.width, m.height) || inside(ox + icon.x, oy + icon.y, root.width, root.height)))
+                    return;
+                if (!root.containsMouse && !root.menuHovered)
+                    root.menuOpen = false;
+            }
+        }
     }
 
     Rectangle {
@@ -242,6 +287,16 @@ MouseArea {
             }
             WlrLayershell.namespace: "quickshell:popup"
             WlrLayershell.layer: WlrLayer.Overlay
+
+            function updateRect() {
+                const o = menuBackground.mapToItem(null, 0, 0);
+                root.menuRect = Qt.rect((menuWindow.screen?.x ?? 0) + menuWindow.margins.left + o.x,
+                                        (menuWindow.screen?.y ?? 0) + menuWindow.margins.top + o.y,
+                                        menuBackground.width, menuBackground.height);
+            }
+            onWidthChanged: Qt.callLater(updateRect)
+            onHeightChanged: Qt.callLater(updateRect)
+            Component.onCompleted: Qt.callLater(updateRect)
 
             StyledRectangularShadow {
                 target: menuBackground
@@ -331,13 +386,52 @@ MouseArea {
                         }
                     }
 
+                    RowLayout {
+                        Layout.fillWidth: true
+                        Layout.leftMargin: 10
+                        Layout.rightMargin: 6
+                        Layout.bottomMargin: 2
+                        spacing: 4
+
+                        MaterialSymbol {
+                            text: "schedule"
+                            iconSize: Appearance.font.pixelSize.larger
+                            color: Appearance.colors.colOnLayer1
+                        }
+                        ColumnLayout {
+                            Layout.fillWidth: true
+                            Layout.leftMargin: 6
+                            spacing: 0
+                            StyledText {
+                                text: "Auto theme"
+                                font.pixelSize: Appearance.font.pixelSize.small
+                                color: Appearance.colors.colOnLayer1
+                            }
+                            StyledText {
+                                visible: ThemeAuto.enabled && text !== ""
+                                text: ThemeAuto.applying ? "Switching..." : ThemeAuto.reason
+                                font.pixelSize: Appearance.font.pixelSize.smaller
+                                color: Appearance.colors.colSubtext
+                            }
+                        }
+                        MaterialLoadingIndicator {
+                            visible: ThemeAuto.applying
+                            loading: visible
+                            implicitSize: 16
+                        }
+                        StyledSwitch {
+                            checked: ThemeAuto.enabled
+                            onToggled: ThemeAuto.setEnabled(checked)
+                        }
+                    }
+
                     Repeater {
                         model: root.themes
 
                         delegate: RippleButton {
                             id: row
                             required property var modelData
-                            readonly property bool active: root.current === modelData.key
+                            readonly property bool active: root.shown === modelData.key
                             readonly property bool busy: root.pending === modelData.key
                             Layout.fillWidth: true
                             implicitWidth: rowContent.implicitWidth + 20
@@ -402,7 +496,6 @@ MouseArea {
                     }
 
                     Rectangle {
-                        visible: root.wallpaperCount > 1 || root.hasDecor
                         Layout.fillWidth: true
                         Layout.topMargin: 4
                         Layout.bottomMargin: 2
@@ -496,6 +589,68 @@ MouseArea {
                         StyledSwitch {
                             checked: root.particlesOn
                             onToggled: root.setParticles(checked)
+                        }
+                    }
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        Layout.leftMargin: 10
+                        Layout.rightMargin: 6
+                        spacing: 4
+
+                        MaterialSymbol {
+                            text: "graphic_eq"
+                            iconSize: Appearance.font.pixelSize.larger
+                            color: Appearance.colors.colOnLayer1
+                        }
+                        ColumnLayout {
+                            Layout.fillWidth: true
+                            Layout.leftMargin: 6
+                            spacing: 0
+                            StyledText {
+                                text: "Ambiance"
+                                font.pixelSize: Appearance.font.pixelSize.small
+                                color: Appearance.colors.colOnLayer1
+                            }
+                            StyledText {
+                                visible: text !== ""
+                                text: !Ambiance.enabled ? "" : (Ambiance.fetching ? "Downloading sounds..." : (!Ambiance.hasSounds ? "No sound for this theme yet" : (Ambiance.shouldPlay ? "" : "Paused while media plays")))
+                                font.pixelSize: Appearance.font.pixelSize.smaller
+                                color: Appearance.colors.colSubtext
+                            }
+                        }
+                        MaterialLoadingIndicator {
+                            visible: Ambiance.fetching
+                            loading: visible
+                            implicitSize: 16
+                        }
+                        StyledSwitch {
+                            checked: Ambiance.enabled
+                            onToggled: Ambiance.setEnabled(checked)
+                        }
+                    }
+
+                    RowLayout {
+                        visible: Ambiance.enabled
+                        Layout.fillWidth: true
+                        Layout.leftMargin: 10
+                        Layout.rightMargin: 6
+                        Layout.bottomMargin: 2
+                        spacing: 4
+
+                        MaterialSymbol {
+                            text: "volume_down"
+                            iconSize: Appearance.font.pixelSize.larger
+                            color: Appearance.colors.colOnLayer1
+                        }
+                        StyledSlider {
+                            Layout.fillWidth: true
+                            Layout.leftMargin: 6
+                            from: 0
+                            to: 1
+                            value: Ambiance.volume
+                            configuration: StyledSlider.Configuration.XS
+                            onMoved: Ambiance.setVolume(value)
                         }
                     }
                 }

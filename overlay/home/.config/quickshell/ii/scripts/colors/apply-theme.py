@@ -33,6 +33,7 @@ BUILTIN = [
      "swatch": ["#F4F1F6", "#1C1B1F"], "wallpaper": True},
 ]
 ALIASES = {"dark": ("default", "dark"), "white": ("default", "light")}
+NOT_THEMES = {"photos", "auto", "sounds"}
 
 
 def camel(key):
@@ -41,7 +42,7 @@ def camel(key):
 
 def load(key):
     path = THEMES / f"{key}.json"
-    if not re.fullmatch(r"[a-z0-9-]+", key) or key == "photos" or not path.is_file():
+    if not re.fullmatch(r"[a-z0-9-]+", key) or key in NOT_THEMES or not path.is_file():
         raise SystemExit(f"unknown theme: {key}")
     t = json.loads(path.read_text())
     sources = [("", t)] + [(f"palettes.{m}.", p) for m, p in (t.get("palettes") or {}).items()]
@@ -145,7 +146,7 @@ def preferred_mode():
 def themes():
     found = []
     for path in sorted(THEMES.glob("*.json")):
-        if path.stem == "photos":
+        if path.stem in NOT_THEMES:
             continue
         try:
             t = load(path.stem)

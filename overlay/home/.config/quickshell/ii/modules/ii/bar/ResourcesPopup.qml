@@ -12,6 +12,10 @@ StyledPopup {
         return (kb / (1024 * 1024)).toFixed(1) + " GiB";
     }
 
+    function formatTemp(c) {
+        return Math.round(c) + String.fromCharCode(176) + "C";
+    }
+
     Row {
         anchors.centerIn: parent
         spacing: 12
@@ -88,6 +92,24 @@ StyledPopup {
                     label: Translation.tr("Load:")
                     value: `${Math.round(ResourceUsage.cpuUsage * 100)}%`
                 }
+                StyledPopupValueRow {
+                    visible: !isNaN(ResourceUsage.cpuTemp)
+                    icon: "thermostat"
+                    label: Translation.tr("Temp:")
+                    value: root.formatTemp(ResourceUsage.cpuTemp)
+                }
+                StyledPopupValueRow {
+                    visible: !isNaN(ResourceUsage.cpuHottestCore)
+                    icon: "local_fire_department"
+                    label: Translation.tr("Hottest core:")
+                    value: root.formatTemp(ResourceUsage.cpuHottestCore)
+                }
+                StyledPopupValueRow {
+                    visible: !isNaN(ResourceUsage.cpuFan)
+                    icon: "mode_fan"
+                    label: Translation.tr("Fan:")
+                    value: `${Math.round(ResourceUsage.cpuFan)} RPM`
+                }
             }
         }
 
@@ -106,6 +128,12 @@ StyledPopup {
                     icon: "bolt"
                     label: Translation.tr("Load:")
                     value: `${Math.round(ResourceUsage.gpuUsage * 100)}%`
+                }
+                StyledPopupValueRow {
+                    visible: !isNaN(ResourceUsage.gpuFan)
+                    icon: "mode_fan"
+                    label: Translation.tr("Fan:")
+                    value: `${Math.round(ResourceUsage.gpuFan)} RPM`
                 }
             }
         }
@@ -134,6 +162,12 @@ StyledPopup {
                     icon: "empty_dashboard"
                     label: Translation.tr("Total:")
                     value: root.formatKB(ResourceUsage.combinedDiskTotal)
+                }
+                StyledPopupValueRow {
+                    visible: !isNaN(ResourceUsage.diskTemp)
+                    icon: "thermostat"
+                    label: Translation.tr("Temp:")
+                    value: root.formatTemp(ResourceUsage.diskTemp)
                 }
             }
         }

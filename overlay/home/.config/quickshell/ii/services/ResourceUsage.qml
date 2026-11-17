@@ -114,9 +114,82 @@ Singleton {
             }
 
             root.updateHistories()
+            root.updateSensors()
             interval = Config.options?.resources?.updateInterval ?? 3000
         }
 	}
+
+    property var sensorPaths: ({})
+    property real cpuTemp: NaN
+    property real cpuHottestCore: NaN
+    property real diskTemp: NaN
+    property real cpuFan: NaN
+    property real gpuFan: NaN
+
+    function sensorValue(view, scale) {
+        if (!view.path)
+            return NaN;
+        view.reload();
+        const v = parseFloat(view.text());
+        return isNaN(v) ? NaN : v / scale;
+    }
+
+    function updateSensors() {
+        root.cpuTemp = sensorValue(fileCpuTemp, 1000);
+        root.diskTemp = sensorValue(fileDiskTemp, 1000);
+        root.cpuFan = sensorValue(fileCpuFan, 1);
+        root.gpuFan = sensorValue(fileGpuFan, 1);
+        let hottest = NaN;
+        for (let i = 0; i < coreViews.count; i++) {
+            const v = sensorValue(coreViews.objectAt(i), 1000);
+            if (!isNaN(v) && (isNaN(hottest) || v > hottest))
+                hottest = v;
+        }
+        root.cpuHottestCore = hottest;
+    }
+
+    Process {
+        id: sensorScanProc
+        running: true
+        command: ["bash", "-c", "for h in /sys/class/hwmon/hwmon*; do n=$(cat $h/name 2>/dev/null); for l in $h/temp*_label $h/fan*_label; do [ -f \"$l\" ] && printf '%s\\t%s\\t%s\\n' \"$n\" \"$(cat $l)\" \"${l%_label}_input\"; done; [ -f $h/temp1_input ] && printf '%s\\t\\t%s\\n' \"$n\" \"$h/temp1_input\"; done"]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                const found = { cores: [] };
+                for (const line of text.split("\n")) {
+                    const [name, label, path] = line.split("\t");
+                    if (!path)
+                        continue;
+                    if (name === "coretemp" && label === "Package id 0")
+                        found.cpu = path;
+                    else if (name === "coretemp" && label.startsWith("Core "))
+                        found.cores.push(path);
+                    else if (name === "k10temp" && label === "Tctl" && !found.cpu)
+                        found.cpu = path;
+                    else if (name === "nvme" && (label === "Composite" || label === "") && !found.disk)
+                        found.disk = path;
+                    else if (label === "cpu_fan")
+                        found.cpuFan = path;
+                    else if (label === "gpu_fan")
+                        found.gpuFan = path;
+                }
+                root.sensorPaths = found;
+            }
+        }
+    }
+
+    FileView { id: fileCpuTemp; path: root.sensorPaths.cpu ?? ""; printErrors: false }
+    FileView { id: fileDiskTemp; path: root.sensorPaths.disk ?? ""; printErrors: false }
+    FileView { id: fileCpuFan; path: root.sensorPaths.cpuFan ?? ""; printErrors: false }
+    FileView { id: fileGpuFan; path: root.sensorPaths.gpuFan ?? ""; printErrors: false }
+    Instantiator {
+        id: coreViews
+        model: root.sensorPaths.cores ?? []
+        delegate: FileView {
+            required property string modelData
+            path: modelData
+            printErrors: false
+        }
+    }
 
 	FileView { id: fileMeminfo; path: "/proc/meminfo" }
     FileView { id: fileStat; path: "/proc/stat" }
