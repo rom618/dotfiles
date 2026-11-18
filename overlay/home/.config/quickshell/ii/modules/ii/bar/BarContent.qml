@@ -180,7 +180,7 @@ Item { // Bar content region
             id: rightCenterGroup
             anchors.verticalCenter: parent.verticalCenter
             // share:begin bar-layout
-            implicitWidth: Math.max(root.centerSideModuleWidth, rightCenterGroupContent.implicitWidth)
+            implicitWidth: rightCenterGroupContent.implicitWidth
             // share:else
             //             implicitWidth: root.centerSideModuleWidth
             // share:end
@@ -382,20 +382,17 @@ Item { // Bar content region
                 Layout.fillHeight: true
             }
 
-            // share:begin bar-themes
             BarGroup {
                 Layout.leftMargin: 4
+                visible: items.length > 0
+                // share:begin bar-themes
                 ThemeIndicator {}
-            }
-
-            // share:end
-            // share:begin terminal-toys
-            BarGroup {
-                Layout.leftMargin: 4
+                // share:end
+                // share:begin terminal-toys
                 TerminalToys {}
+                // share:end
             }
 
-            // share:end
             // share:begin bar-docker
             // Docker
             Loader {
