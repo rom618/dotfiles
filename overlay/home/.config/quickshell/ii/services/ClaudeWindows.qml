@@ -22,6 +22,7 @@ Singleton {
     property var cwds: ({})
     property var subagents: ({})
     property var unread: ({})
+    property var doneReplies: ({})
     readonly property string focusedAddress: ToplevelManager.activeToplevel?.HyprlandToplevel?.address ? `0x${ToplevelManager.activeToplevel.HyprlandToplevel.address}` : ""
     readonly property var labels: ({ "claude": "Claude", "pi": "pi", "codex": "Codex" })
     property bool installed: false
@@ -74,16 +75,21 @@ Singleton {
         return total;
     }
 
-    function countUnread(previous, next) {
+    function countUnread(previous, next, replies) {
         const counts = {};
+        const doneReplies = {};
         for (const address in next) {
             let n = root.unread[address] ?? 0;
-            if (next[address] === "done" && previous[address] && previous[address] !== "done" && address !== root.focusedAddress)
+            const reply = replies[address];
+            const newReply = reply === undefined || reply !== root.doneReplies[address];
+            if (next[address] === "done" && previous[address] && previous[address] !== "done" && address !== root.focusedAddress && newReply)
                 n += 1;
             if (n > 0)
                 counts[address] = n;
+            doneReplies[address] = next[address] === "done" || !(address in root.doneReplies) ? reply : root.doneReplies[address];
         }
         root.unread = counts;
+        root.doneReplies = doneReplies;
     }
 
     onFocusedAddressChanged: {
@@ -111,7 +117,7 @@ Singleton {
             onRead: line => {
                 try {
                     const data = JSON.parse(line);
-                    root.countUnread(root.states, data.states ?? {});
+                    root.countUnread(root.states, data.states ?? {}, data.replies ?? {});
                     root.states = data.states ?? {};
                     root.agents = data.agents ?? {};
                     root.cwds = data.cwds ?? {};
@@ -121,6 +127,7 @@ Singleton {
         }
         onExited: {
             root.states = {};
+            root.doneReplies = {};
             root.agents = {};
             root.cwds = {};
             root.subagents = {};

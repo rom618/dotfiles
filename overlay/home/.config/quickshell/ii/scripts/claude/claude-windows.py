@@ -100,6 +100,37 @@ def started_at(pid):
 
 
 _last_entries = {}
+_transcripts = {}
+_last_replies = {}
+
+
+def last_reply(session_id):
+    """Identifiant de la dernière réponse de Claude dans la conversation ; un rechargement ou un entretien du cache n'en ajoute pas."""
+    path = _transcripts.get(session_id)
+    if path is None or not path.exists():
+        path = next(Path.home().glob(f".claude/projects/*/{session_id}.jsonl"), None)
+        if path is None:
+            return None
+        _transcripts[session_id] = path
+    st = path.stat()
+    key = (st.st_mtime, st.st_size)
+    cached = _last_replies.get(path)
+    if cached and cached[0] == key:
+        return cached[1]
+    with path.open("rb") as f:
+        f.seek(max(0, st.st_size - 2_000_000))
+        lines = f.read().splitlines()
+    reply = ""
+    for raw in reversed(lines):
+        try:
+            entry = json.loads(raw)
+        except ValueError:
+            continue
+        if entry.get("type") == "assistant" and not entry.get("isSidechain"):
+            reply = entry.get("uuid") or ""
+            break
+    _last_replies[path] = (key, reply)
+    return reply
 
 
 def transcript_running(path):
@@ -165,8 +196,9 @@ def window_state(kitty_pid, win):
     except OSError:
         pass
     if agent != "claude":
-        return (hook[1], agent, 0) if hook else ("idle", agent, 0)
+        return (hook[1], agent, 0, None) if hook else ("idle", agent, 0, None)
     subagents = 0
+    reply = None
     try:
         data = json.loads((CLAUDE_SESSIONS / f"{procs[0].get('pid')}.json").read_text())
         status = data.get("status")
@@ -174,13 +206,14 @@ def window_state(kitty_pid, win):
             session = (float(data.get("updatedAt") or 0) / 1000, SESSION_STATUS[status])
         if data.get("sessionId"):
             subagents = running_subagents(data["sessionId"])
+            reply = last_reply(data["sessionId"])
     except (OSError, ValueError, AttributeError, TypeError):
         pass
     if hook and session:
-        return max(hook, session)[1], agent, subagents
+        return max(hook, session)[1], agent, subagents, reply
     if hook or session:
-        return (hook or session)[1], agent, subagents
-    return ("done" if (win.get("title") or "").startswith(chr(0x2733)) else "running"), agent, subagents
+        return (hook or session)[1], agent, subagents, reply
+    return ("done" if (win.get("title") or "").startswith(chr(0x2733)) else "running"), agent, subagents, reply
 
 
 def os_window_state(kitty_pid, osw):
@@ -193,8 +226,8 @@ def os_window_state(kitty_pid, osw):
                 continue
             subagents += found[2]
             if best is None or RANK[found[0]] > RANK[best[0]]:
-                best = (*found[:2], win.get("cwd") or "")
-    return (*best, subagents) if best else None
+                best = (*found[:2], win.get("cwd") or "", found[3])
+    return (*best[:3], subagents, best[3]) if best else None
 
 
 def os_window_title(osw):
@@ -228,16 +261,18 @@ def snapshot():
     for c in hypr_clients():
         if c.get("class") == "kitty" and c.get("pid", 0) > 0:
             by_pid.setdefault(c["pid"], []).append(c)
-    states, agents, cwds, subagents = {}, {}, {}, {}
+    states, agents, cwds, subagents, replies = {}, {}, {}, {}, {}
     for pid, group in by_pid.items():
         for client, osw in match(group, kitty_ls(pid)):
             found = os_window_state(pid, osw)
             if found:
                 address = client["address"]
-                states[address], agents[address], cwds[address], n = found
+                states[address], agents[address], cwds[address], n, reply = found
                 if n:
                     subagents[address] = n
-    return {"states": states, "agents": agents, "cwds": cwds, "subagents": subagents}
+                if reply is not None:
+                    replies[address] = reply
+    return {"states": states, "agents": agents, "cwds": cwds, "subagents": subagents, "replies": replies}
 
 
 def main():
