@@ -29,6 +29,31 @@ Singleton {
     readonly property bool mediaPlaying: MprisController.players.some(p => p.isPlaying)
     readonly property bool shouldPlay: root.enabled && root.hasSounds && !GlobalStates.screenLocked && !(root.pauseForMedia && root.mediaPlaying)
     readonly property bool playing: player.playbackState === MediaPlayer.PlayingState
+    readonly property string currentFile: root.files.length > 0 ? root.files[root.index % root.files.length] : ""
+    readonly property string trackName: {
+        const base = root.currentFile.split("/").pop().replace(/\.[a-z0-9]+$/i, "");
+        return /-[0-9a-f]{10}$/.test(base) ? "" : base.replace(/^BGM_/, "").replace(/_/g, " ");
+    }
+
+    function skipTrack() {
+        root.next();
+    }
+
+    function banTrack() {
+        const f = root.currentFile;
+        if (f === "")
+            return;
+        skipProc.command = [root.script, "--skip", root.theme, f];
+        skipProc.running = true;
+        const rest = root.files.filter(x => x !== f);
+        root.files = rest;
+        root.index = rest.length > 0 ? root.index % rest.length : 0;
+        player.source = "";
+        if (rest.length > 0)
+            root.start();
+        else
+            player.stop();
+    }
 
     function savePrefs(changes) {
         const next = Object.assign({}, root.prefs, changes);
@@ -169,6 +194,10 @@ Singleton {
                 settle.restart();
             }
         }
+    }
+
+    Process {
+        id: skipProc
     }
 
     Process {

@@ -104,7 +104,7 @@ desktop = true
 packages = { arch = ["python"], ubuntu = ["python3"] }
 
 [module.bar-themes]
-description = "Bar: a palette button to switch the theme: Dark and White (from your wallpaper), Midnight, Forest, Arctic, Mint, Desert, Sakura, Ocean, Ember, Lavender, Neon and Autumn (each with three wallpapers to switch from the menu, a dark terminal, and its own particles over the wallpaper, which the menu can turn off); a theme shown in the other mode (light/dark) gets its own palette with lightness flipped and hues kept, instead of a near-white generated one; each theme and mode is prepared in the background (~/.cache/quickshell/theme-cache), so a switch only copies ready files and recolors terminals in parallel; an Auto theme switch picks the theme from time of day, season, temperature and weather (rules in themes/auto.json); an Ambiance switch plays each theme's own ambient sound, downloaded on first use"
+description = "Bar: a palette button to switch the theme: Dark and White (from your wallpaper), Midnight, Forest, Arctic, Mint, Desert, Sakura, Ocean, Ember, Lavender, Neon and Autumn (each with three wallpapers to switch from the menu, a dark terminal, and its own particles over the wallpaper, which the menu can turn off); a theme shown in the other mode (light/dark) gets its own palette with lightness flipped and hues kept, instead of a near-white generated one; each theme and mode is prepared in the background (~/.cache/quickshell/theme-cache), so a switch only copies ready files and recolors terminals in parallel; an Auto theme switch picks the theme from time of day, season, temperature and weather (rules in themes/auto.json); an Ambiance switch plays each theme's own ambient sound, downloaded on first use, with next-track and never-again buttons; private themes (your own JSON files in ~/.local/share/quickshell-themes/private/, never shared) can bring local music and sounds for popups, notifications, lock and unlock"
 default = true
 desktop = true
 packages = { arch = ["python-pillow", "ffmpeg", "qt6-multimedia", "qt6-multimedia-ffmpeg"], ubuntu = ["python3-pil", "ffmpeg", "qml6-module-qtmultimedia"] }
@@ -341,6 +341,7 @@ sudo = true
 "home/.config/quickshell/ii/services/Notifications.qml" = "notifications-click"
 "home/.config/quickshell/ii/services/ResourceUsage.qml" = "bar-resources"
 "home/.config/quickshell/ii/services/ThemeAuto.qml" = "bar-themes"
+"home/.config/quickshell/ii/services/ThemeSounds.qml" = "bar-themes"
 "home/.config/quickshell/ii/services/Weather.qml" = "base"
 "home/.config/quickshell/ii/services/ai/AiModel.qml" = "ai-sidebar-extras"
 "home/.config/quickshell/ii/services/ai/ApiStrategy.qml" = "ai-sidebar-extras"
@@ -361,6 +362,7 @@ sudo = true
 "home/.config/quickshell/ii/themes/ocean.json" = "bar-themes"
 "home/.config/quickshell/ii/themes/photos.json" = "bar-themes"
 "home/.config/quickshell/ii/themes/sakura.json" = "bar-themes"
+"home/.config/quickshell/ii/themes/sounds.json" = "bar-themes"
 "home/.config/quickshell/ii/welcome.qml" = "base"
 "home/.ideavimrc" = "nvim-vim"
 "home/.pi/agent/extensions/etat-barre.ts" = "agent-hooks"

@@ -21,6 +21,7 @@ CHOICE_FILE = STATE / "theme-choices.json"
 PREFS_FILE = STATE / "theme-prefs.json"
 SHELL_CONFIG = Path(os.environ.get("XDG_CONFIG_HOME") or Path.home() / ".config") / "illogical-impulse" / "config.json"
 WALLPAPERS = Path(os.environ.get("XDG_DATA_HOME") or Path.home() / ".local" / "share") / "quickshell-themes" / "wallpapers"
+PRIVATE = Path(os.environ.get("XDG_DATA_HOME") or Path.home() / ".local" / "share") / "quickshell-themes" / "private"
 CACHE = Path(os.environ.get("XDG_CACHE_HOME") or Path.home() / ".cache") / "quickshell" / "theme-cache"
 MATUGEN_CONFIG = Path(os.environ.get("XDG_CONFIG_HOME") or Path.home() / ".config") / "matugen" / "config.toml"
 TERMINAL = HERE / "terminal"
@@ -40,8 +41,13 @@ def camel(key):
     return re.sub(r"_([a-z])", lambda m: m.group(1).upper(), key)
 
 
-def load(key):
+def theme_path(key):
     path = THEMES / f"{key}.json"
+    return path if path.is_file() else PRIVATE / f"{key}.json"
+
+
+def load(key):
+    path = theme_path(key)
     if not re.fullmatch(r"[a-z0-9-]+", key) or key in NOT_THEMES or not path.is_file():
         raise SystemExit(f"unknown theme: {key}")
     t = json.loads(path.read_text())
@@ -145,9 +151,11 @@ def preferred_mode():
 
 def themes():
     found = []
-    for path in sorted(THEMES.glob("*.json")):
-        if path.stem in NOT_THEMES:
+    seen = set()
+    for path in sorted(THEMES.glob("*.json")) + sorted(PRIVATE.glob("*.json")):
+        if path.stem in NOT_THEMES or path.stem in seen:
             continue
+        seen.add(path.stem)
         try:
             t = load(path.stem)
         except (SystemExit, ValueError):
@@ -215,7 +223,7 @@ def available_wallpapers():
 def wallpaper_names(t):
     names = t.get("wallpapers") or ([t["wallpaper"]] if t.get("wallpaper") else [])
     known = available_wallpapers()
-    return [n for n in names if isinstance(n, str) and n in known]
+    return [n for n in names if isinstance(n, str) and (n in known or (re.fullmatch(r"[a-z0-9-]+", n) and (WALLPAPERS / f"{n}.jpg").is_file()))]
 
 
 def load_choices():
@@ -325,7 +333,7 @@ def inputs_digest():
 
 
 def entry_dir(key, mode):
-    return CACHE / f"{key}-{mode}-{digest(inputs_digest(), (THEMES / f'{key}.json').read_bytes(), mode)}"
+    return CACHE / f"{key}-{mode}-{digest(inputs_digest(), theme_path(key).read_bytes(), mode)}"
 
 
 def override_scss(scss, pal):

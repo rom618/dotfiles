@@ -170,7 +170,11 @@ MouseArea {
         onLoadFailed: root.applied = {}
     }
 
-    onMenuOpenChanged: if (menuOpen) listProc.running = true
+    onMenuOpenChanged: {
+        if (menuOpen)
+            listProc.running = true;
+        ThemeSounds.play(menuOpen ? "popupOpen" : "popupClose");
+    }
 
     function done() {
         MaterialThemeLoader.hold = false;
@@ -651,6 +655,95 @@ MouseArea {
                             value: Ambiance.volume
                             configuration: StyledSlider.Configuration.XS
                             onMoved: Ambiance.setVolume(value)
+                        }
+                    }
+
+                    RowLayout {
+                        visible: Ambiance.enabled && Ambiance.currentFile !== "" && Ambiance.shouldPlay
+                        Layout.fillWidth: true
+                        Layout.leftMargin: 10
+                        Layout.rightMargin: 6
+                        spacing: 2
+
+                        MaterialSymbol {
+                            text: "music_note"
+                            iconSize: Appearance.font.pixelSize.larger
+                            color: Appearance.colors.colOnLayer1
+                        }
+                        StyledText {
+                            Layout.fillWidth: true
+                            Layout.leftMargin: 6
+                            elide: Text.ElideRight
+                            text: Ambiance.trackName !== "" ? Ambiance.trackName : "Track " + (Ambiance.index % Math.max(1, Ambiance.files.length) + 1) + " of " + Ambiance.files.length
+                            font.pixelSize: Appearance.font.pixelSize.smaller
+                            color: Appearance.colors.colSubtext
+                        }
+                        IconToolbarButton {
+                            implicitHeight: 28
+                            text: "skip_next"
+                            onClicked: Ambiance.skipTrack()
+                            StyledToolTip {
+                                text: "Next track"
+                            }
+                        }
+                        IconToolbarButton {
+                            implicitHeight: 28
+                            visible: Ambiance.files.length > 1
+                            text: "block"
+                            onClicked: Ambiance.banTrack()
+                            StyledToolTip {
+                                text: "Never play this track again"
+                            }
+                        }
+                    }
+
+                    RowLayout {
+                        visible: ThemeSounds.available
+                        Layout.fillWidth: true
+                        Layout.leftMargin: 10
+                        Layout.rightMargin: 6
+                        spacing: 4
+
+                        MaterialSymbol {
+                            text: "notifications_active"
+                            iconSize: Appearance.font.pixelSize.larger
+                            color: Appearance.colors.colOnLayer1
+                        }
+                        StyledText {
+                            Layout.fillWidth: true
+                            Layout.leftMargin: 6
+                            text: "Theme sounds"
+                            font.pixelSize: Appearance.font.pixelSize.small
+                            color: Appearance.colors.colOnLayer1
+                        }
+                        StyledSwitch {
+                            checked: ThemeSounds.enabled
+                            onToggled: ThemeSounds.setEnabled(checked)
+                        }
+                    }
+
+                    RowLayout {
+                        visible: ThemeSounds.available && ThemeSounds.enabled
+                        Layout.fillWidth: true
+                        Layout.leftMargin: 10
+                        Layout.rightMargin: 6
+                        Layout.bottomMargin: 2
+                        spacing: 4
+
+                        MaterialSymbol {
+                            text: "volume_down"
+                            iconSize: Appearance.font.pixelSize.larger
+                            color: Appearance.colors.colOnLayer1
+                        }
+                        StyledSlider {
+                            Layout.fillWidth: true
+                            Layout.leftMargin: 6
+                            from: 0
+                            to: 1
+                            value: ThemeSounds.volume
+                            configuration: StyledSlider.Configuration.XS
+                            onMoved: ThemeSounds.setVolume(value)
+                            onPressedChanged: if (!pressed) ThemeSounds.play("notification")
                         }
                     }
                 }
