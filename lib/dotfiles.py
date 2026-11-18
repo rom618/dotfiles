@@ -371,6 +371,28 @@ def target_of(dest):
     raise SystemExit(f"bad destination {dest}")
 
 
+def render_bytes(raw, chosen, dest):
+    try:
+        return markers.render(raw.decode(), chosen, dest).encode()
+    except UnicodeDecodeError:
+        return raw
+
+
+def published_shas(dest, chosen):
+    """Hashes of every version of dest this repo ever committed: a target equal to one of them holds no change of the user's."""
+    if not (REPO / ".git").exists():
+        return set()
+    path = f"overlay/{dest}"
+    revs = subprocess.run(["git", "-C", str(REPO), "log", "--format=%H", "--", path],
+                          capture_output=True, text=True, check=True).stdout.split()
+    shas = set()
+    for rev in revs:
+        shown = subprocess.run(["git", "-C", str(REPO), "show", f"{rev}:{path}"], capture_output=True)
+        if shown.returncode == 0:
+            shas.add(sha(render_bytes(shown.stdout, chosen, dest)))
+    return shas
+
+
 def end4_original(target):
     try:
         rel = target.relative_to(HOME)
@@ -414,11 +436,7 @@ def apply_files(manifest, chosen, state, plan):
         if module not in chosen:
             continue
         src = REPO / "overlay" / dest
-        raw = src.read_bytes()
-        try:
-            data = markers.render(raw.decode(), chosen, dest).encode()
-        except UnicodeDecodeError:
-            data = raw
+        data = render_bytes(src.read_bytes(), chosen, dest)
         mode = 0o755 if os.access(src, os.X_OK) else 0o644
         wanted[dest] = (data, mode)
     for dest, (data, mode) in sorted(wanted.items()):
@@ -444,9 +462,11 @@ def apply_files(manifest, chosen, state, plan):
             if side.exists() and not plan.dry_run:
                 side.unlink()
             continue
-        if current is None or current == before:
+        if current is None or current == before or current in published_shas(dest, chosen):
             write_user_file(target, data, mode, plan)
             recorded[key] = new
+            if side.exists() and not plan.dry_run:
+                side.unlink()
             continue
         if before is None:
             original = end4_original(target)
@@ -854,7 +874,10 @@ def cmd_status(args):
         return 0
     print("modules: " + ", ".join(state["modules"]))
     print("end-4: " + str(state.get("end4_commit")))
-    changed = [k for k, v in state.get("files", {}).items() if file_sha(k) not in (v, None)]
+    dests = {str(target_of(d)[0]): d for d in load_manifest()["files"]}
+    chosen = set(state["modules"])
+    changed = [k for k, v in state.get("files", {}).items()
+               if file_sha(k) not in (v, None) and file_sha(k) not in published_shas(dests.get(k, ""), chosen)]
     pending = [k for k in state.get("files", {}) if Path(k + NEW_SUFFIX).exists() and file_sha(k + NEW_SUFFIX) != file_sha(k)]
     for k in changed:
         print("changed by you: " + k)
