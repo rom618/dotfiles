@@ -238,7 +238,6 @@ ButtonMouseArea {
                         }
 
                         animated: !wsApp.biggestWindow // Prevent the "image-missing" icon
-                        visible: false // Prevent dupe: the colorizer already copies the icon
 
                         source: wsApp.mainAppIconSource
                         implicitSize: Math.round(NumberUtils.roundToEven(root.workspaceIconSize) * root.dpr) / root.dpr
@@ -264,6 +263,7 @@ ButtonMouseArea {
                     ShaderEffectSource {
                         id: appIconTexture
                         visible: false
+                        hideSource: true
                         sourceItem: appIcon
                         textureSize: Qt.size(Math.round(appIcon.width * root.dpr), Math.round(appIcon.height * root.dpr))
                         smooth: colorizer.rotation !== 0 || colorizer.item?.scale !== 1
