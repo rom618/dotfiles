@@ -12,6 +12,22 @@ StyledPopup {
         return (kb / (1024 * 1024)).toFixed(1) + " GiB";
     }
 
+    function formatBytes(n, suffix) {
+        const units = ["B", "KB", "MB", "GB", "TB", "PB"];
+        let i = 0;
+        while (n >= 1000 && i < units.length - 1) {
+            n /= 1000;
+            i++;
+        }
+        return (i === 0 ? Math.round(n) : n.toFixed(1)) + " " + units[i] + suffix;
+    }
+
+    function formatHealth(h) {
+        if (h.health === "good")
+            return h.worn === null ? Translation.tr("Good") : Translation.tr("Good · %1% worn").arg(h.worn);
+        return (h.health === "failing" ? Translation.tr("Failing") : Translation.tr("Warning")) + " · " + h.problems.join(", ");
+    }
+
     function formatTemp(c) {
         return Math.round(c) + String.fromCharCode(176) + "C";
     }
@@ -144,7 +160,7 @@ StyledPopup {
 
             StyledPopupHeaderRow {
                 icon: "hard_drive"
-                label: "Disk"
+                label: ResourceUsage.diskKind || "Disk"
             }
             Column {
                 spacing: 4
@@ -168,6 +184,46 @@ StyledPopup {
                     icon: "thermostat"
                     label: Translation.tr("Temp:")
                     value: root.formatTemp(ResourceUsage.diskTemp)
+                }
+            }
+        }
+
+        Column {
+            anchors.top: parent.top
+            spacing: 8
+            visible: ResourceUsage.diskDevice !== ""
+
+            StyledPopupHeaderRow {
+                opacity: 0
+                icon: "hard_drive"
+                label: ""
+            }
+            Column {
+                spacing: 4
+                StyledPopupValueRow {
+                    visible: ResourceUsage.diskHealth !== null
+                    icon: "health_and_safety"
+                    label: Translation.tr("Health:")
+                    value: ResourceUsage.diskHealth ? root.formatHealth(ResourceUsage.diskHealth) : ""
+                    valueColor: ResourceUsage.diskHealth?.health === "good" ? Appearance.colors.colOnSurfaceVariant : Appearance.colors.colError
+                }
+                StyledPopupValueRow {
+                    visible: ResourceUsage.diskHealth !== null
+                    icon: "edit_note"
+                    label: Translation.tr("Written:")
+                    value: ResourceUsage.diskHealth ? (ResourceUsage.diskHealth.written === null ? "" : root.formatBytes(ResourceUsage.diskHealth.written, "") + " · ") + Translation.tr("%1 h on").arg(ResourceUsage.diskHealth.hours.toLocaleString(Qt.locale("en_US"), "f", 0)) : ""
+                }
+                StyledPopupValueRow {
+                    visible: ResourceUsage.diskDevice !== ""
+                    icon: "swap_vert"
+                    label: Translation.tr("I/O:")
+                    value: "R " + root.formatBytes(ResourceUsage.diskReadRate, "/s") + " · W " + root.formatBytes(ResourceUsage.diskWriteRate, "/s")
+                }
+                StyledPopupValueRow {
+                    visible: ResourceUsage.diskDevice !== ""
+                    icon: "speed"
+                    label: Translation.tr("Busy:")
+                    value: Math.round(ResourceUsage.diskBusy * 100) + "%"
                 }
             }
         }

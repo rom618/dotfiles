@@ -116,7 +116,7 @@ desktop = true
 settings = { "bar.utilButtons.showScreenSnip" = [true, false], "bar.utilButtons.showKeyboardToggle" = [true, false], "bar.utilButtons.showDarkModeToggle" = [true, false] }
 
 [module.bar-resources]
-description = "Bar: disk (root and a separate home), GPU load, CPU and disk temperatures and fan speeds in the resources popup"
+description = "Bar: disk (root and a separate home, titled SSD or HDD), drive health, data written and live I/O, GPU load, CPU and disk temperatures and fan speeds in the resources popup"
 default = true
 desktop = true
 packages = { arch = ["python"], ubuntu = ["python3"] }
@@ -302,6 +302,7 @@ sudo = true
 "home/.config/quickshell/ii/modules/ii/bar/Media.qml" = "bar-layout"
 "home/.config/quickshell/ii/modules/ii/bar/Resources.qml" = "bar-layout"
 "home/.config/quickshell/ii/modules/ii/bar/ResourcesPopup.qml" = "bar-resources"
+"home/.config/quickshell/ii/modules/ii/bar/StyledPopupValueRow.qml" = "bar-resources"
 "home/.config/quickshell/ii/modules/ii/bar/SysTray.qml" = "bar-layout"
 "home/.config/quickshell/ii/modules/ii/bar/TerminalToys.qml" = "terminal-toys"
 "home/.config/quickshell/ii/modules/ii/bar/ThemeIndicator.qml" = "bar-themes"
@@ -326,6 +327,7 @@ sudo = true
 "home/.config/quickshell/ii/scripts/colors/auto-theme.py" = "bar-themes"
 "home/.config/quickshell/ii/scripts/colors/terminal/sequences.txt" = "base"
 "home/.config/quickshell/ii/scripts/colors/theme-contrast.py" = "bar-themes"
+"home/.config/quickshell/ii/scripts/disk/disk-health.py" = "bar-resources"
 "home/.config/quickshell/ii/scripts/terminal-toys.py" = "terminal-toys"
 "home/.config/quickshell/ii/services/Ai.qml" = "ai-sidebar-extras"
 "home/.config/quickshell/ii/services/Ambiance.qml" = "bar-themes"

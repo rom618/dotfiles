@@ -42,6 +42,14 @@ Singleton {
     property real combinedDiskUsed: combinedDiskTotal - combinedDiskFree
     property real combinedDiskUsedPercentage: combinedDiskUsed / combinedDiskTotal
 
+    property string diskDevice: ""
+    property real diskReadRate: 0
+    property real diskWriteRate: 0
+    property real diskBusy: 0
+    property var previousDiskStats
+    property var diskHealth: null
+    readonly property string diskKind: ({ "0": "SSD", "1": "HDD" })[fileDiskRotational.text().trim()] ?? ""
+
     property string maxAvailableMemoryString: kbToGbString(ResourceUsage.memoryTotal)
     property string maxAvailableSwapString: kbToGbString(ResourceUsage.swapTotal)
     property string maxAvailableCpuString: "--"
@@ -113,6 +121,7 @@ Singleton {
                 previousCpuStats = { total, idle }
             }
 
+            root.updateDiskIo()
             root.updateHistories()
             root.updateSensors()
             interval = Config.options?.resources?.updateInterval ?? 3000
@@ -132,6 +141,23 @@ Singleton {
         view.reload();
         const v = parseFloat(view.text());
         return isNaN(v) ? NaN : v / scale;
+    }
+
+    function updateDiskIo() {
+        if (!root.diskDevice)
+            return;
+        fileDiskStat.reload();
+        const f = fileDiskStat.text().trim().split(/\s+/).map(Number);
+        const now = Date.now();
+        const stats = { time: now, read: f[2] * 512, written: f[6] * 512, busy: f[9] };
+        const prev = root.previousDiskStats;
+        if (prev) {
+            const dt = (now - prev.time) / 1000;
+            root.diskReadRate = (stats.read - prev.read) / dt;
+            root.diskWriteRate = (stats.written - prev.written) / dt;
+            root.diskBusy = Math.min(1, (stats.busy - prev.busy) / (dt * 1000));
+        }
+        root.previousDiskStats = stats;
     }
 
     function updateSensors() {
@@ -192,6 +218,26 @@ Singleton {
     }
 
 	FileView { id: fileMeminfo; path: "/proc/meminfo" }
+    FileView { id: fileDiskStat; path: root.diskDevice ? `/sys/block/${root.diskDevice}/stat` : "" }
+    FileView { id: fileDiskRotational; path: root.diskDevice ? `/sys/block/${root.diskDevice}/queue/rotational` : ""; blockLoading: true }
+
+    Process {
+        id: diskDeviceProc
+        running: true
+        command: ["bash", "-c", "lsblk -rsno NAME,TYPE \"$(findmnt -nvo SOURCE /)\" | awk '$2==\"disk\"{print $1; exit}'"]
+        stdout: StdioCollector {
+            onStreamFinished: root.diskDevice = text.trim()
+        }
+    }
+
+    onDiskDeviceChanged: diskHealthProc.exec([Quickshell.shellPath("scripts/disk/disk-health.py"), root.diskDevice])
+
+    Process {
+        id: diskHealthProc
+        stdout: StdioCollector {
+            onStreamFinished: root.diskHealth = JSON.parse(text)
+        }
+    }
     FileView { id: fileStat; path: "/proc/stat" }
 
     Timer {
@@ -199,7 +245,11 @@ Singleton {
         running: true
         repeat: true
         triggeredOnStart: true
-        onTriggered: diskUsageProc.running = true
+        onTriggered: {
+            diskUsageProc.running = true;
+            if (root.diskDevice)
+                diskHealthProc.exec([Quickshell.shellPath("scripts/disk/disk-health.py"), root.diskDevice]);
+        }
     }
 
     Process {
