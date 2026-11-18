@@ -80,7 +80,12 @@ def effects(theme):
 
 
 def local(theme, track):
-    return OUT / f"{theme}-{hashlib.sha1(track['url'].encode()).hexdigest()[:10]}.ogg"
+    h = hashlib.sha1(track['url'].encode()).hexdigest()[:10]
+    own = OUT / f"{theme}-{h}.ogg"
+    if own.is_file():
+        return own
+    shared = sorted(OUT.glob(f"*-{h}.ogg"))
+    return shared[0] if shared else own
 
 
 def fetch(theme, track):
