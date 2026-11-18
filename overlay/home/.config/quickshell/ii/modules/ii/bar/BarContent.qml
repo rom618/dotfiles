@@ -2,6 +2,7 @@ import qs.modules.ii.bar.weather
 import QtQuick
 import QtQuick.Layouts
 import Quickshell
+import Quickshell.Services.Mpris
 import Quickshell.Services.UPower
 import qs
 import qs.services
@@ -129,6 +130,7 @@ Item { // Bar content region
             anchors.verticalCenter: parent.verticalCenter
             // share:begin bar-layout
             implicitWidth: root.mediaModuleWidth
+            visible: MprisController.activePlayer?.playbackState === MprisPlaybackState.Playing
             // share:else
             //             implicitWidth: root.centerSideModuleWidth
             //
@@ -145,7 +147,7 @@ Item { // Bar content region
         }
 
         VerticalBarSeparator {
-            visible: Config.options?.bar.borderless
+            visible: Config.options?.bar.borderless && leftCenterGroup.visible
         }
 
         BarGroup {
