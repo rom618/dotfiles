@@ -15,7 +15,7 @@ SUBAGENT_MAX_AGE = 6 * 3600
 SUBAGENT_SILENT_MAX = 30 * 60
 SUBAGENT_REPLY_MAX = 5 * 60
 CLAUDE_SESSIONS = Path.home() / ".claude" / "sessions"
-SESSION_STATUS = {"idle": "done", "busy": "running", "waiting": "waiting"}
+SESSION_STATUS = {"idle": "done", "shell": "done", "busy": "running", "waiting": "waiting"}
 RANK = {"idle": -1, "done": 0, "running": 1, "waiting": 2}
 INTERVAL = 1.0
 KITTY_VERSION = [int(n) for n in re.search(r"(\d+)\.(\d+)\.(\d+)", subprocess.run(["kitty", "--version"], capture_output=True, text=True).stdout).groups()]
