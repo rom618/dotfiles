@@ -19,6 +19,7 @@ Singleton {
     property var files: []
     property string filesTheme: ""
     property int index: 0
+    property var names: ({})
     property bool fetching: false
 
     readonly property bool enabled: root.prefs.ambiance === true
@@ -30,9 +31,31 @@ Singleton {
     readonly property bool shouldPlay: root.enabled && root.hasSounds && !GlobalStates.screenLocked && !(root.pauseForMedia && root.mediaPlaying)
     readonly property bool playing: player.playbackState === MediaPlayer.PlayingState
     readonly property string currentFile: root.files.length > 0 ? root.files[root.index % root.files.length] : ""
-    readonly property string trackName: {
-        const base = root.currentFile.split("/").pop().replace(/\.[a-z0-9]+$/i, "");
+    readonly property string trackName: root.nameOf(root.currentFile)
+
+    function nameOf(f) {
+        if (!f)
+            return "";
+        if (root.names[f])
+            return root.names[f];
+        const base = f.split("/").pop().replace(/\.[a-z0-9]+$/i, "");
         return /-[0-9a-f]{10}$/.test(base) ? "" : base.replace(/^BGM_/, "").replace(/_/g, " ");
+    }
+
+    function previousTrack() {
+        const n = Math.max(1, root.files.length);
+        root.index = (root.index - 1 + n) % n;
+        player.source = "";
+        root.start();
+    }
+
+    function playFile(f) {
+        const i = root.files.indexOf(f);
+        if (i < 0)
+            return;
+        root.index = i;
+        player.source = "";
+        root.start();
     }
 
     function skipTrack() {
@@ -201,6 +224,19 @@ Singleton {
     }
 
     Process {
+        id: namesProc
+        stdout: StdioCollector {
+            onStreamFinished: {
+                try {
+                    root.names = JSON.parse(text);
+                } catch (e) {
+                    root.names = {};
+                }
+            }
+        }
+    }
+
+    Process {
         id: fetchProc
         property string theme: ""
         stdout: StdioCollector {
@@ -216,6 +252,8 @@ Singleton {
                 }
                 root.files = root.shuffle(list);
                 root.filesTheme = fetchProc.theme;
+                namesProc.command = [root.script, "--names", fetchProc.theme];
+                namesProc.running = true;
                 root.index = 0;
                 if (root.shouldPlay)
                     root.start();

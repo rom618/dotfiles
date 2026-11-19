@@ -15,6 +15,7 @@ MouseArea {
     acceptedButtons: Qt.LeftButton
 
     property bool menuOpen: false
+    property bool trackListOpen: false
     property bool menuHovered: false
     property string pending: ""
     property bool slow: false
@@ -674,9 +675,30 @@ MouseArea {
                             Layout.fillWidth: true
                             Layout.leftMargin: 6
                             elide: Text.ElideRight
-                            text: Ambiance.trackName !== "" ? Ambiance.trackName : "Track " + (Ambiance.index % Math.max(1, Ambiance.files.length) + 1) + " of " + Ambiance.files.length
+                            text: (Ambiance.trackName !== "" ? Ambiance.trackName : "Track " + (Ambiance.index % Math.max(1, Ambiance.files.length) + 1) + " of " + Ambiance.files.length) + (Ambiance.files.length > 1 ? (root.trackListOpen ? "  \u25b4" : "  \u25be") : "")
                             font.pixelSize: Appearance.font.pixelSize.smaller
-                            color: Appearance.colors.colSubtext
+                            color: trackNameArea.containsMouse ? Appearance.colors.colOnLayer1 : Appearance.colors.colSubtext
+                            MouseArea {
+                                id: trackNameArea
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                enabled: Ambiance.files.length > 1
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: root.trackListOpen = !root.trackListOpen
+                            }
+                            StyledToolTip {
+                                visible: trackNameArea.containsMouse && !root.trackListOpen
+                                text: "Choose a track"
+                            }
+                        }
+                        IconToolbarButton {
+                            implicitHeight: 28
+                            visible: Ambiance.files.length > 1
+                            text: "skip_previous"
+                            onClicked: Ambiance.previousTrack()
+                            StyledToolTip {
+                                text: "Previous track"
+                            }
                         }
                         IconToolbarButton {
                             implicitHeight: 28
@@ -693,6 +715,39 @@ MouseArea {
                             onClicked: Ambiance.banTrack()
                             StyledToolTip {
                                 text: "Never play this track again"
+                            }
+                        }
+                    }
+
+                    ListView {
+                        id: trackList
+                        visible: root.trackListOpen && Ambiance.enabled && Ambiance.shouldPlay && Ambiance.files.length > 1
+                        Layout.fillWidth: true
+                        Layout.leftMargin: 6
+                        Layout.rightMargin: 6
+                        Layout.preferredHeight: visible ? Math.min(contentHeight, 240) : 0
+                        clip: true
+                        model: Ambiance.files
+                        currentIndex: Ambiance.index % Math.max(1, Ambiance.files.length)
+                        onVisibleChanged: if (visible) positionViewAtIndex(currentIndex, ListView.Center)
+                        delegate: RippleButton {
+                            id: trackRow
+                            required property string modelData
+                            required property int index
+                            width: trackList.width
+                            implicitHeight: 28
+                            buttonRadius: Appearance.rounding.small
+                            toggled: modelData === Ambiance.currentFile
+                            colBackgroundToggled: Appearance.colors.colSecondaryContainer
+                            onClicked: Ambiance.playFile(modelData)
+                            contentItem: StyledText {
+                                leftPadding: 8
+                                rightPadding: 8
+                                verticalAlignment: Text.AlignVCenter
+                                elide: Text.ElideRight
+                                text: (trackRow.index + 1) + ".  " + (Ambiance.nameOf(trackRow.modelData) || "Track " + (trackRow.index + 1))
+                                font.pixelSize: Appearance.font.pixelSize.smaller
+                                color: trackRow.toggled ? Appearance.colors.colOnSecondaryContainer : Appearance.colors.colOnLayer1
                             }
                         }
                     }

@@ -54,9 +54,28 @@ def skip(theme, path):
     tmp.replace(SKIP)
 
 
+def music_entries(theme):
+    out = []
+    for m in private(theme).get("music", []):
+        f, name = (m, "") if isinstance(m, str) else ((m.get("file"), m.get("name") or "") if isinstance(m, dict) else (None, ""))
+        if isinstance(f, str):
+            out.append((str(Path(os.path.expanduser(f))), name))
+    return out
+
+
 def local_music(theme):
-    files = [str(Path(os.path.expanduser(f))) for f in private(theme).get("music", []) if isinstance(f, str)]
-    return [f for f in files if Path(f).is_file()]
+    return [f for f, _ in music_entries(theme) if Path(f).is_file()]
+
+
+def names(theme):
+    found = {}
+    for t in tracks(theme):
+        if t.get("title"):
+            found[str(local(theme, t))] = t["title"]
+    for f, name in music_entries(theme):
+        if name:
+            found[f] = name
+    return found
 
 
 def effects(theme):
@@ -155,6 +174,9 @@ def main():
         skip(args[1], args[2])
         print(json.dumps(ready(args[1])))
         return 0
+    if len(args) == 2 and args[0] == "--names":
+        print(json.dumps(names(args[1])))
+        return 0
     if len(args) == 2 and args[0] == "--ready":
         print(json.dumps(ready(args[1])))
         return 0
@@ -162,7 +184,7 @@ def main():
         ensure(args[0])
         print(json.dumps(ready(args[0])))
         return 0
-    print("usage: ambiance.py --list | --ready THEME | --effects THEME | --skip THEME FILE | THEME (download missing tracks, print ready files)", file=sys.stderr)
+    print("usage: ambiance.py --list | --ready THEME | --names THEME | --effects THEME | --skip THEME FILE | THEME (download missing tracks, print ready files)", file=sys.stderr)
     return 2
 
 
