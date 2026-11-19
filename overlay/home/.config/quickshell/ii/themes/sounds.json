@@ -80,5 +80,47 @@
    "start": 300,
    "end": 2100
   }
+ ],
+ "mint": [
+  {
+   "title": "Wind Chimes Water Droplets and Ocean Waves Loop",
+   "artist": "DudeAwesome",
+   "license": "Attribution",
+   "page": "https://freesound.org/people/DudeAwesome/sounds/790545/",
+   "url": "https://cdn.freesound.org/previews/790/790545_6885640-hq.mp3"
+  }
+ ],
+ "sakura": [
+  {
+   "title": "tokyo urban ambiance.mp3",
+   "artist": "xef6",
+   "license": "Creative Commons 0",
+   "page": "https://freesound.org/people/xef6/sounds/95655/",
+   "url": "https://cdn.freesound.org/previews/95/95655_607076-hq.mp3",
+   "end": 1800
+  },
+  {
+   "title": "Late afternoon in Tsuki Park, Saitama City, Japan",
+   "artist": "somewhereinjp",
+   "license": "Attribution",
+   "page": "https://freesound.org/people/somewhereinjp/sounds/818324/",
+   "url": "https://cdn.freesound.org/previews/818/818324_17574853-hq.mp3"
+  }
+ ],
+ "ember": [
+  {
+   "title": "Volcano Mount Yasur, Tanna Island",
+   "artist": "felix.blume",
+   "license": "Creative Commons 0",
+   "page": "https://freesound.org/people/felix.blume/sounds/661147/",
+   "url": "https://cdn.freesound.org/previews/661/661147_1661766-hq.mp3"
+  },
+  {
+   "title": "Volcano Mount Yasur, Tanna Island, from the bottom",
+   "artist": "felix.blume",
+   "license": "Creative Commons 0",
+   "page": "https://freesound.org/people/felix.blume/sounds/663040/",
+   "url": "https://cdn.freesound.org/previews/663/663040_1661766-hq.mp3"
+  }
  ]
 }
