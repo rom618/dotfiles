@@ -112,6 +112,9 @@ Scope {
         function clear(): void {
             lockContext.currentText = "";
         }
+        function isLocked(): bool {
+            return GlobalStates.screenLocked;
+        }
     }
 
     GlobalShortcut {
