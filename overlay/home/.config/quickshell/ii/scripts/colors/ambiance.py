@@ -81,21 +81,34 @@ def names(theme):
 def effects(theme):
     found = {}
     out = DATA / "effects"
-    for event, f in (private(theme).get("sounds") or {}).items():
-        path = Path(os.path.expanduser(f)) if event in EVENTS and isinstance(f, str) else None
+    def convert(event, f):
+        path = Path(os.path.expanduser(f)) if isinstance(f, str) else None
         if not path or not path.is_file():
-            continue
-        dest = out / f"{theme}-{event}-{hashlib.sha1(str(path).encode()).hexdigest()[:10]}.ogg"
+            return None
+        dest = out / f"{theme}-{event}-{hashlib.sha1(str(path).encode()).hexdigest()[:10]}.wav"
         if not dest.is_file():
             out.mkdir(parents=True, exist_ok=True)
-            part = dest.with_suffix(".part.ogg")
+            part = dest.with_suffix(".part.wav")
             r = subprocess.run(["ffmpeg", "-nostdin", "-v", "error", "-y", "-i", str(path), "-ac", "2", "-ar", "48000",
-                                "-af", "loudnorm=I=-20:TP=-2", "-c:a", "libopus", "-b:a", "128k", str(part)])
+                                "-af", "silenceremove=start_periods=1:start_threshold=-50dB,loudnorm=I=-20:TP=-2",
+                                "-c:a", "pcm_s16le", str(part)])
             if r.returncode != 0:
                 part.unlink(missing_ok=True)
-                continue
+                return None
             part.replace(dest)
-        found[event] = str(dest)
+        return str(dest)
+
+    for event, f in (private(theme).get("sounds") or {}).items():
+        if event not in EVENTS:
+            continue
+        if isinstance(f, list):
+            files = [convert(event, x) for x in f]
+            if any(files):
+                found[event] = [x or "" for x in files]
+        else:
+            one = convert(event, f)
+            if one:
+                found[event] = one
     return found
 
 

@@ -30,55 +30,56 @@ Singleton {
         Ambiance.savePrefs({ themeSoundsVolume: Math.round(v * 100) / 100 });
     }
 
-    function play(event) {
+    function fileFor(event, variant) {
+        const e = root.effects[event];
+        if (Array.isArray(e)) {
+            const n = Math.max(0, Number(variant) || 0);
+            return e[n % e.length] || e.find(x => x) || "";
+        }
+        return e || "";
+    }
+
+    function play(event, variant) {
         if (!root.enabled || !root.effects[event])
             return;
         const now = Date.now();
-        if (now - (root.lastPlayed[event] ?? 0) < 350)
+        const gap = (event === "lock" || event === "unlock") ? 350 : 60;
+        if (now - (root.lastPlayed[event] ?? 0) < gap)
             return;
         root.lastPlayed[event] = now;
-        const p = players[event];
-        if (!p)
+        const i = root.voiceFiles.indexOf(root.fileFor(event, variant));
+        if (i < 0)
             return;
-        p.stop();
-        p.play();
+        root.voiceTurn[i] = ((root.voiceTurn[i] ?? 0) + 1) % root.voicesPerFile;
+        const v = voices.objectAt(i * root.voicesPerFile + root.voiceTurn[i]);
+        if (!v)
+            return;
+        v.stop();
+        v.play();
     }
 
-    readonly property var players: ({
-        popupOpen: popupOpen,
-        popupClose: popupClose,
-        notification: notification,
-        lock: lock,
-        unlock: unlock,
-        windowOpen: windowOpen,
-        windowClose: windowClose,
-        workspace: workspace,
-        launcherOpen: launcherOpen,
-        launcherClose: launcherClose,
-        screenshot: screenshot
-    })
+    readonly property int voicesPerFile: 3
+    property var voiceTurn: ({})
+    readonly property var voiceFiles: {
+        const all = [];
+        for (const k of Object.keys(root.effects)) {
+            const e = root.effects[k];
+            for (const f of (Array.isArray(e) ? e : [e]))
+                if (f && !all.includes(f))
+                    all.push(f);
+        }
+        return all;
+    }
 
-    component Fx: MediaPlayer {
-        id: fx
-        property string file: ""
-        property real level: 0.6
-        source: fx.file !== "" ? "file://" + fx.file : ""
-        audioOutput: AudioOutput {
-            volume: fx.level
+    Instantiator {
+        id: voices
+        model: root.voiceFiles.length * root.voicesPerFile
+        delegate: SoundEffect {
+            required property int index
+            source: "file://" + root.voiceFiles[Math.floor(index / root.voicesPerFile)]
+            volume: root.volume
         }
     }
-
-    Fx { id: popupOpen; file: root.effects.popupOpen ?? ""; level: root.volume }
-    Fx { id: popupClose; file: root.effects.popupClose ?? ""; level: root.volume }
-    Fx { id: notification; file: root.effects.notification ?? ""; level: root.volume }
-    Fx { id: lock; file: root.effects.lock ?? ""; level: root.volume }
-    Fx { id: unlock; file: root.effects.unlock ?? ""; level: root.volume }
-    Fx { id: windowOpen; file: root.effects.windowOpen ?? ""; level: root.volume }
-    Fx { id: windowClose; file: root.effects.windowClose ?? ""; level: root.volume }
-    Fx { id: workspace; file: root.effects.workspace ?? ""; level: root.volume }
-    Fx { id: launcherOpen; file: root.effects.launcherOpen ?? ""; level: root.volume }
-    Fx { id: launcherClose; file: root.effects.launcherClose ?? ""; level: root.volume }
-    Fx { id: screenshot; file: root.effects.screenshot ?? ""; level: root.volume }
 
     readonly property bool launcherShown: GlobalStates.overviewOpen || GlobalStates.searchOpen
     onLauncherShownChanged: play(launcherShown ? "launcherOpen" : "launcherClose")
@@ -100,7 +101,7 @@ Singleton {
             } else if (event.name === "workspacev2") {
                 if (Date.now() - (root.lastPlayed.windowOpen ?? 0) < 600)
                     return;
-                root.play("workspace");
+                root.play("workspace", parseInt(event.data) - 1);
             }
         }
     }
