@@ -7,6 +7,7 @@ import qs.modules.common
 import qs.services
 import Quickshell
 import Quickshell.Io
+import Quickshell.Hyprland
 
 Singleton {
     id: root
@@ -48,7 +49,13 @@ Singleton {
         popupClose: popupClose,
         notification: notification,
         lock: lock,
-        unlock: unlock
+        unlock: unlock,
+        windowOpen: windowOpen,
+        windowClose: windowClose,
+        workspace: workspace,
+        launcherOpen: launcherOpen,
+        launcherClose: launcherClose,
+        screenshot: screenshot
     })
 
     component Fx: MediaPlayer {
@@ -66,6 +73,37 @@ Singleton {
     Fx { id: notification; file: root.effects.notification ?? ""; level: root.volume }
     Fx { id: lock; file: root.effects.lock ?? ""; level: root.volume }
     Fx { id: unlock; file: root.effects.unlock ?? ""; level: root.volume }
+    Fx { id: windowOpen; file: root.effects.windowOpen ?? ""; level: root.volume }
+    Fx { id: windowClose; file: root.effects.windowClose ?? ""; level: root.volume }
+    Fx { id: workspace; file: root.effects.workspace ?? ""; level: root.volume }
+    Fx { id: launcherOpen; file: root.effects.launcherOpen ?? ""; level: root.volume }
+    Fx { id: launcherClose; file: root.effects.launcherClose ?? ""; level: root.volume }
+    Fx { id: screenshot; file: root.effects.screenshot ?? ""; level: root.volume }
+
+    readonly property bool launcherShown: GlobalStates.overviewOpen || GlobalStates.searchOpen
+    onLauncherShownChanged: play(launcherShown ? "launcherOpen" : "launcherClose")
+
+    Connections {
+        target: Hyprland
+        function onRawEvent(event) {
+            if (GlobalStates.screenLocked)
+                return;
+            if (event.name === "openwindow") {
+                const cls = (event.data.split(",")[2] ?? "").trim();
+                if (cls === "")
+                    return;
+                if (Date.now() - (root.lastPlayed.launcherClose ?? 0) < 800)
+                    launcherClose.stop();
+                root.play("windowOpen");
+            } else if (event.name === "closewindow") {
+                root.play("windowClose");
+            } else if (event.name === "workspacev2") {
+                if (Date.now() - (root.lastPlayed.windowOpen ?? 0) < 600)
+                    return;
+                root.play("workspace");
+            }
+        }
+    }
 
     onThemeChanged: load()
     Component.onCompleted: load()
@@ -112,6 +150,10 @@ Singleton {
         }
         function onSidebarLeftOpenChanged() {
             root.play(GlobalStates.sidebarLeftOpen ? "popupOpen" : "popupClose");
+        }
+        function onRegionSelectorOpenChanged() {
+            if (GlobalStates.regionSelectorOpen)
+                root.play("screenshot");
         }
     }
 
