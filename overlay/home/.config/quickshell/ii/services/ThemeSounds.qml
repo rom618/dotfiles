@@ -71,6 +71,16 @@ Singleton {
         return all;
     }
 
+    IpcHandler {
+        target: "themeSounds"
+        function play(event: string, variant: int): void {
+            root.play(event, variant);
+        }
+        function info(): string {
+            return JSON.stringify({ enabled: root.enabled, theme: root.theme, events: Object.keys(root.effects), files: root.voiceFiles.length, voices: voices.count, volume: root.volume });
+        }
+    }
+
     Instantiator {
         id: voices
         model: root.voiceFiles.length * root.voicesPerFile

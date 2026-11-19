@@ -41,6 +41,7 @@ MouseArea {
 
     readonly property bool autoThemeOn: ThemeAuto.enabled
     readonly property bool ambianceOn: Ambiance.enabled
+    readonly property bool themeSoundsOn: ThemeSounds.enabled
 
     property var prefs: ({})
     readonly property bool particlesOn: root.prefs.particles !== false
@@ -619,19 +620,65 @@ MouseArea {
                             }
                             StyledText {
                                 visible: text !== ""
-                                text: !Ambiance.enabled ? "" : (Ambiance.fetching ? "Downloading sounds..." : (!Ambiance.hasSounds ? "No sound for this theme yet" : (Ambiance.shouldPlay ? "" : "Paused while media plays")))
+                                text: !Ambiance.enabled ? "" : (Ambiance.fetching ? "Downloading sounds..." : (!Ambiance.hasSounds ? (Ambiance.playSource === "music" ? (Ambiance.syncing ? "Syncing the playlist..." : "The playlist is empty") : "No sound for this theme yet") : (Ambiance.shouldPlay ? "" : "Paused while media plays")))
                                 font.pixelSize: Appearance.font.pixelSize.smaller
                                 color: Appearance.colors.colSubtext
                             }
                         }
                         MaterialLoadingIndicator {
-                            visible: Ambiance.fetching
+                            visible: Ambiance.fetching || (Ambiance.syncing && Ambiance.playSource === "music" && !Ambiance.hasSounds)
                             loading: visible
                             implicitSize: 16
                         }
                         StyledSwitch {
                             checked: Ambiance.enabled
                             onToggled: Ambiance.setEnabled(checked)
+                        }
+                    }
+
+                    RowLayout {
+                        visible: Ambiance.enabled && Ambiance.musicAvailable
+                        Layout.fillWidth: true
+                        Layout.leftMargin: 4
+                        Layout.rightMargin: 4
+                        spacing: 4
+
+                        Repeater {
+                            model: [
+                                { key: "sounds", icon: "forest", name: "Sounds" },
+                                { key: "music", icon: "queue_music", name: "Music" }
+                            ]
+
+                            delegate: RippleButton {
+                                id: sourceButton
+                                required property var modelData
+                                readonly property bool active: Ambiance.playSource === modelData.key
+                                Layout.fillWidth: true
+                                implicitHeight: 28
+                                buttonRadius: Appearance.rounding.full
+                                toggled: active
+                                colBackgroundToggled: Appearance.colors.colSecondaryContainer
+                                colBackgroundToggledHover: Appearance.colors.colSecondaryContainerHover
+                                colRippleToggled: Appearance.colors.colSecondaryContainerActive
+                                onClicked: Ambiance.setSource(modelData.key)
+
+                                contentItem: RowLayout {
+                                    spacing: 4
+                                    Item { Layout.fillWidth: true }
+                                    MaterialSymbol {
+                                        text: sourceButton.modelData.icon
+                                        iconSize: Appearance.font.pixelSize.normal
+                                        fill: sourceButton.active ? 1 : 0
+                                        color: sourceButton.active ? Appearance.colors.colOnSecondaryContainer : Appearance.colors.colOnLayer1
+                                    }
+                                    StyledText {
+                                        text: sourceButton.modelData.name
+                                        font.pixelSize: Appearance.font.pixelSize.small
+                                        color: sourceButton.active ? Appearance.colors.colOnSecondaryContainer : Appearance.colors.colOnLayer1
+                                    }
+                                    Item { Layout.fillWidth: true }
+                                }
+                            }
                         }
                     }
 

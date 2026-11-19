@@ -17,6 +17,9 @@ SKIP = Path(os.environ.get("XDG_STATE_HOME") or Path.home() / ".local" / "state"
 EVENTS = ("popupOpen", "popupClose", "notification", "lock", "unlock", "windowOpen", "windowClose", "workspace",
           "launcherOpen", "launcherClose", "screenshot")
 UA = "Mozilla/5.0 (X11; Linux x86_64) quickshell-themes"
+PLAYLIST = DATA / "playlist" / "index.json"
+PLAYLIST_CONFIG = Path(os.environ.get("XDG_CONFIG_HOME") or Path.home() / ".config") / "ambiance-playlist" / "config.json"
+MUSIC = "@music"
 
 
 def tracks(theme):
@@ -33,6 +36,42 @@ def private(theme):
         return json.loads((PRIVATE / f"{theme}.json").read_text())
     except (OSError, ValueError):
         return {}
+
+
+def theme_data(theme):
+    own = private(theme)
+    if own or not theme.replace("-", "").isalnum():
+        return own
+    try:
+        return json.loads((HERE.parent.parent / "themes" / f"{theme}.json").read_text())
+    except (OSError, ValueError):
+        return {}
+
+
+def playlist():
+    try:
+        found = json.loads(PLAYLIST.read_text()).get("tracks", [])
+    except (OSError, ValueError, AttributeError):
+        return []
+    return [t for t in found if isinstance(t, dict) and isinstance(t.get("file"), str) and Path(t["file"]).is_file()]
+
+
+def matches(track, rule):
+    return isinstance(rule, dict) and bool(rule) and all(
+        str(v).lower() in str(track.get(k) or "").lower() for k, v in rule.items())
+
+
+def music(theme):
+    skip_set = skipped(MUSIC)
+    found = [t for t in playlist() if t["file"] not in skip_set]
+    rule = theme_data(theme).get("playlistFilter")
+    rules = rule if isinstance(rule, list) else ([rule] if rule else [])
+    picked = [t for t in found if any(matches(t, r) for r in rules)]
+    return [t["file"] for t in (picked or found)]
+
+
+def music_names():
+    return {t["file"]: " - ".join(x for x in (t.get("title"), t.get("artist")) if x) for t in playlist()}
 
 
 def skipped(theme):
@@ -180,6 +219,15 @@ def main():
                 counts[path.stem] = counts.get(path.stem, 0) + n
         print(json.dumps(counts))
         return 0
+    if args == ["--music-status"]:
+        print(json.dumps({"configured": PLAYLIST_CONFIG.is_file(), "tracks": len(playlist())}))
+        return 0
+    if args == ["--music-names"]:
+        print(json.dumps(music_names()))
+        return 0
+    if len(args) == 2 and args[0] == "--music":
+        print(json.dumps(music(args[1])))
+        return 0
     if len(args) == 2 and args[0] == "--effects":
         print(json.dumps(effects(args[1])))
         return 0
@@ -197,7 +245,7 @@ def main():
         ensure(args[0])
         print(json.dumps(ready(args[0])))
         return 0
-    print("usage: ambiance.py --list | --ready THEME | --names THEME | --effects THEME | --skip THEME FILE | THEME (download missing tracks, print ready files)", file=sys.stderr)
+    print("usage: ambiance.py --list | --music-status | --music THEME | --music-names | --ready THEME | --names THEME | --effects THEME | --skip THEME FILE | THEME (download missing tracks, print ready files)", file=sys.stderr)
     return 2
 
 
