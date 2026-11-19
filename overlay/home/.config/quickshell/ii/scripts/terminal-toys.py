@@ -1,212 +1,713 @@
 #!/usr/bin/env python3
 import argparse
-import html
+import base64
+import colorsys
 import json
 import math
+import os
 import select
 import signal
 import sys
 import termios
 import time
 import tty
+from functools import lru_cache
+from io import BytesIO
+from pathlib import Path
+
+from PIL import Image
 
 NAMES = ['Terminal cat', 'Growing garden', 'Sleepy robot', 'Little baker',
          'Pocket wizard', 'Little planet']
 KEYS = ['cat', 'garden', 'robot', 'baker', 'wizard', 'planet']
-COLORS = ['#536482', '#8bd5ff', '#b7a2ff', '#a6ed9e', '#ffd580', '#ff92bd', '#edf3ff']
-W, H = 76, 20
+STATES = ['idle', 'running', 'success', 'error']
+FPS = {'idle': 4, 'running': 10, 'success': 8, 'error': 8}
+FRAMES = 8
+W = H = 32
+THEME = Path.home() / '.local/state/quickshell/user/generated/colors.json'
+FALLBACK_ACCENT = '#e8789a'
+INK = (43, 32, 56)
+WHITE = (255, 251, 242)
+WARM = (255, 244, 222)
+COOL = (60, 40, 96)
+UPPER, LOWER = chr(0x2580), chr(0x2584)
 
 
-class Canvas:
+def rgb(value):
+    if isinstance(value, tuple):
+        return value
+    value = value.lstrip('#')
+    return tuple(int(value[i:i+2], 16) for i in (0, 2, 4))
+
+
+def mix(a, b, t):
+    return tuple(round(a[k]+(b[k]-a[k])*t) for k in range(3))
+
+
+def shades(color, hi=.38, lo=.36):
+    c = rgb(color)
+    return mix(c, WARM, hi), c, mix(c, COOL, lo)
+
+
+def theme_accent(path=THEME):
+    try:
+        value = rgb(json.loads(Path(path).read_text())['primary'])
+    except (OSError, ValueError, KeyError, TypeError):
+        return FALLBACK_ACCENT
+    h, s, v = colorsys.rgb_to_hsv(*(k/255 for k in value))
+    s = min(.8, max(.6, s*2.4))
+    v = min(.95, max(.88, v))
+    return '#%02x%02x%02x' % tuple(round(k*255) for k in colorsys.hsv_to_rgb(h, s, v))
+
+
+def ellipse(cx, cy, rx, ry):
+    return lambda x, y: ((x-cx)/rx)**2+((y-cy)/ry)**2 <= 1
+
+
+def rrect(x0, y0, x1, y1, r):
+    def test(x, y):
+        if not (x0 <= x <= x1 and y0 <= y <= y1):
+            return False
+        dx = max(x0+r-x, 0, x-(x1-r))
+        dy = max(y0+r-y, 0, y-(y1-r))
+        return dx*dx+dy*dy <= r*r
+    return test
+
+
+def triangle(a, b, c):
+    def side(p, q, r):
+        return (p[0]-r[0])*(q[1]-r[1])-(q[0]-r[0])*(p[1]-r[1])
+    def test(x, y):
+        d1, d2, d3 = side((x, y), a, b), side((x, y), b, c), side((x, y), c, a)
+        return not ((d1 < 0 or d2 < 0 or d3 < 0) and (d1 > 0 or d2 > 0 or d3 > 0))
+    return test
+
+
+class Sprite:
     def __init__(self):
-        self.cells = [[(' ', 0) for _ in range(W)] for _ in range(H)]
+        self.layers = {'body': {}, 'fx': {}}
+        self.shadow = None
 
-    def put(self, x, y, text, color=1):
+    def dot(self, x, y, color, layer='body'):
         x, y = round(x), round(y)
-        for dy, line in enumerate(text.split('\n')):
-            for dx, ch in enumerate(line):
-                if 0 <= x + dx < W and 0 <= y + dy < H and ch != ' ':
-                    self.cells[y + dy][x + dx] = (ch, color)
+        if 0 <= x < W and 0 <= y < H:
+            self.layers[layer][(x, y)] = rgb(color) if color is not None else None
 
-    def line(self, x, y, x2, y2, ch='.', color=0):
-        steps = max(1, round(max(abs(x2-x), abs(y2-y))))
-        for k in range(steps + 1):
-            self.put(x+(x2-x)*k/steps, y+(y2-y)*k/steps, ch, color)
+    def fill(self, test, colors, light=(1, 1.5), rim=True, layer='body', edge=None, edge_from=-1):
+        hi, base, lo = colors
+        drawn = set()
+        for y in range(H):
+            for x in range(W):
+                cx, cy = x+.5, y+.5
+                if not test(cx, cy):
+                    continue
+                if light and not test(cx+light[0], cy+light[1]):
+                    color = lo
+                elif rim and not test(cx-1, cy-1):
+                    color = hi
+                else:
+                    color = base
+                self.layers[layer][(x, y)] = color
+                drawn.add((x, y))
+        if edge:
+            target = self.layers[layer]
+            for (x, y) in drawn:
+                for n in ((x+1, y), (x-1, y), (x, y+1), (x, y-1)):
+                    if n not in drawn and n[1] >= edge_from and target.get(n) is not None:
+                        target[n] = rgb(edge)
 
-    def encode(self, rich=False):
-        rows = []
-        for row in self.cells:
-            parts, last = [], None
-            for ch, color in row:
-                if color != last:
-                    if rich:
-                        parts.append(('</span>' if last is not None else '') +
-                                     f'<span style="color:{COLORS[color]}">')
-                    else:
-                        rgb = tuple(int(COLORS[color][i:i+2], 16) for i in (1, 3, 5))
-                        parts.append('\x1b[38;2;%d;%d;%dm' % rgb)
-                    last = color
-                parts.append(html.escape(ch) if rich else ch)
-            parts.append('</span>' if rich else '\x1b[0m')
-            rows.append(''.join(parts))
-        return '<pre>' + '\n'.join(rows) + '</pre>' if rich else '\r\n'.join(rows)
+    def paint(self, test, color, layer='body'):
+        color = rgb(color)
+        for (x, y) in list(self.layers[layer]):
+            if test(x+.5, y+.5):
+                self.layers[layer][(x, y)] = color
+
+    def stamp(self, rows, x, y, palette, layer='body'):
+        x, y = math.floor(x+.5), math.floor(y+.5)
+        for dy, row in enumerate(rows):
+            for dx, ch in enumerate(row):
+                if ch != '.':
+                    self.dot(x+dx, y+dy, palette[ch], layer)
+
+    def line(self, x0, y0, x1, y1, color, layer='body'):
+        steps = max(1, round(max(abs(x1-x0), abs(y1-y0))))
+        for k in range(steps+1):
+            self.dot(x0+(x1-x0)*k/steps, y0+(y1-y0)*k/steps, color, layer)
+
+    def blob(self, points, radius, colors, layer='body'):
+        tests = [ellipse(px, py, radius, radius) for px, py in points]
+        self.fill(lambda x, y: any(t(x, y) for t in tests), colors, layer=layer)
+
+    def image(self):
+        out = Image.new('RGBA', (W, H))
+        pixels = out.load()
+        if self.shadow:
+            cx, cy, rx = self.shadow
+            for y in range(H):
+                for x in range(W):
+                    if ((x+.5-cx)/rx)**2+((y+.5-cy)/1.4)**2 <= 1:
+                        pixels[x, y] = (20, 14, 30, 70)
+        for name in ('body', 'fx'):
+            layer = {k: v for k, v in self.layers[name].items() if v is not None}
+            edge = set()
+            for (x, y) in layer:
+                for nx, ny in ((x+1, y), (x-1, y), (x, y+1), (x, y-1)):
+                    if (nx, ny) not in layer and 0 <= nx < W and 0 <= ny < H:
+                        edge.add((nx, ny))
+            for (x, y) in edge:
+                pixels[x, y] = INK+(255,)
+            for (x, y), color in layer.items():
+                pixels[x, y] = color+(255,)
+        return out
 
 
-def frame(scene, t, state='running'):
-    c = Canvas()
-    beat = int(t*4) % 2
-    color = {'idle': 2, 'running': 1, 'success': 3, 'error': 5}[state]
-    label = {'idle': 'IDLE', 'running': 'WORKING', 'success': 'SUCCESS', 'error': 'ERROR'}[state]
-    c.put((W-len(label)-4)//2, 1, '[ '+label+' ]', color)
-    if scene == 'cat':
-        x = 31+math.sin(t if state == 'running' else t*.15)*2
-        eyes = {'idle': '-.-', 'running': 'o.o', 'success': '^.^', 'error': 'O.O'}[state]
-        c.put(x, 7, ' /\\_/\\\n( '+eyes+' )\n > ^ <\n/|   |\\\n (_|_)', 4)
-        if state == 'idle':
-            c.put(x+10, 5-int(t)%2, 'z Z', 2)
-        elif state == 'running':
-            c.put(x+9, 10, '/-\\|'[int(t*8)%4], 5)
-            c.put(x+7, 10+math.sin(t*9), '_/', 4)
-        elif state == 'success':
-            c.put(x+10, 7-beat, '<3', 5)
+Z3 = ['zzzz', '..z.', '.z..', 'zzzz']
+Z4 = ['zzzzz', '...z.', '..z..', '.z...', 'zzzzz']
+HEART = ['.rr.rr.', 'rhrrrrr', 'rrrrrrr', '.rrrrr.', '..rrr..', '...r...']
+HEART_S = ['rr.rr', 'rhrrr', '.rrr.', '..r..']
+STAR = ['..y..', '..y..', 'yyhyy', '..y..', '..y..']
+STAR_S = ['.y.', 'yhy', '.y.']
+DROP = ['.b.', 'bhb', 'bbb', '.b.']
+BANG = ['yy', 'yy', 'yy', 'yy', '..', 'yy']
+FX = {'z': (226, 220, 255), 'r': (255, 106, 140), 'h': WHITE, 'y': (255, 214, 92),
+      'b': (130, 200, 255)}
+
+
+def zzz(s, i, x, y):
+    for k in range(2):
+        phase = (i/FRAMES+k/2) % 1
+        if phase > .92:
+            continue
+        rows = Z3 if phase < .45 else Z4
+        s.stamp(rows, min(x+phase*6, W-len(rows[0])), max(0, y+3-phase*8), FX, 'fx')
+
+
+def hearts(s, i, spots):
+    for k, (x, y) in enumerate(spots):
+        phase = (i/FRAMES+k/len(spots)) % 1
+        rows = HEART if phase < .55 else HEART_S
+        s.stamp(rows, x+round(math.sin(phase*6.3)), y-phase*6, FX, 'fx')
+
+
+def sparkles(s, i, spots):
+    for k, (x, y) in enumerate(spots):
+        phase = (i+k*3) % FRAMES
+        if phase in (0, 1, 2):
+            s.stamp(STAR if phase == 1 else STAR_S, x-(2 if phase == 1 else 1), y-(2 if phase == 1 else 1), FX, 'fx')
+
+
+def puff(s, i, x, y, color=(206, 200, 214)):
+    phase = i % FRAMES
+    if phase > 5:
+        return
+    grow = [1.2, 1.9, 2.4, 2.4, 1.8, 1.1][phase]
+    rise = phase*.8
+    pts = [(x, y-rise), (x+2.6, y-1-rise), (x-2.4, y-.6-rise), (x+.6, y-2.4-rise)]
+    tests = [ellipse(px, py, grow, grow) for px, py in pts]
+    s.fill(lambda a, b: any(t(a, b) for t in tests), shades(color, .55, .18), light=(.6, 1.2), layer='fx')
+
+
+def bang(s, x, y):
+    s.stamp(BANG, x, y, FX, 'fx')
+
+
+def drop(s, x, y):
+    s.stamp(DROP, x, y, FX, 'fx')
+
+
+def face(s, x, y, mood, gap=7, eye='open', look=0, blush=True, mouth=True):
+    k, w, p = INK, WHITE, (255, 138, 160)
+    pal = {'k': k, 'w': w, 'p': p}
+    for ex in (x, x+gap):
+        if mood == 'sleep':
+            s.stamp(['kkk'], ex-1, y+1, pal)
+        elif mood == 'happy':
+            s.stamp(['.kk.', 'k..k'], ex-1, y, pal)
+        elif mood == 'shock':
+            s.stamp(['kkk', 'kwk', 'kkk'], ex-1, y-1, pal)
+        elif mood == 'dizzy':
+            s.stamp(['k.k', '.k.', 'k.k'], ex-1, y-1, pal)
         else:
-            c.put(x+10, 5, '!?', 5)
-            c.put(x+9, 12, '/___/ . .', 1)
-        caption = {'idle': 'nap time', 'running': 'spinner hunting',
-                   'success': 'purr. well done.', 'error': 'who knocked that over?'}[state]
-    elif scene == 'garden':
-        c.put(31, 12, '\\__________/\n \\________/\n  \\______/', 2)
-        if state == 'idle':
-            c.put(33, 9, '\\  /\n \\ /\n  |', 3)
-            c.put(41, 7-int(t)%2, 'z z', 2)
-        elif state == 'running':
-            top = 9-int(t*1.5)%3
-            c.put(32, top, '\\ | /\n \\|/', 3)
-            c.line(34, top+2, 34, 11, '|', 3)
-            c.put(42, 5, ' ___\n|___|_\n \\___/\\', 1)
-            c.put(38+beat, 8+beat, '. .\n .', 1)
-        elif state == 'success':
-            c.put(31, 4, '  .-.-.\n ( ^ ^ )\n(   v   )\n (_____)\n    |\n \\  |  /\n  \\ | /\n    |', 4)
-            c.put(27, 6+beat, '+', 5)
-            c.put(44, 5+beat, '*', 5)
-        else:
-            c.put(34, 6, '   ___\n  /   \\__\n  |  (x_x)\n  |   `-\'\n /|\n  |', 4)
-            c.put(45, 11+beat, '.', 1)
-            c.put(28, 5, '!', 5)
-        caption = {'idle': 'a seed with big dreams', 'running': 'sip, sprout, repeat',
-                   'success': 'look who bloomed!', 'error': 'oops. too thirsty.'}[state]
-    elif scene == 'robot':
-        x = 32+beat if state == 'running' else 32
-        eyes = {'idle': '- -', 'running': 'o o', 'success': '^ ^', 'error': 'x x'}[state]
-        c.put(x, 5, '   o\n   |', 1)
-        c.put(x, 6, ' .---.\n |'+eyes+'|\n |_'+('v' if state == 'success' else '_')+'_|', color)
-        c.put(x, 10, '[|'+('###' if state == 'success' else '.  ' if state == 'idle' else '=  ' if beat else '== ')+'|]\n  |_|\n _/ \\_', 1)
-        if state == 'idle':
-            c.put(43, 5-int(t)%2, 'z Z', 2)
-            c.put(28, 13, '==', 0)
-        elif state == 'running':
-            c.put(x+8, 8+beat, 'o--{', 4)
-            c.put(x+10, 11, '/-\\|'[int(t*8)%4], 4)
-        elif state == 'success':
-            c.put(x-4, 8-beat, '\\o/', 4)
-            c.put(x+8, 8-beat, '\\o/', 4)
-            c.put(46, 5, '+', 3)
-        else:
-            c.put(x+8, 5+beat, '* !', 5)
-            c.put(x+9, 12, 'o--{', 4)
-        caption = {'idle': 'battery saver: snooze', 'running': 'tiny bot, big job',
-                   'success': 'beep boop. nailed it!', 'error': 'a screw went on vacation'}[state]
-    elif scene == 'baker':
-        c.put(29, 5, ' .-~~-.\n(______)', 6)
-        eyes = {'idle': '- -', 'running': 'o o', 'success': '^ ^', 'error': 'O O'}[state]
-        c.put(30, 7, '('+eyes+')\n /'+('v' if state == 'success' else '_')+'\\\n |:|', 4)
-        c.put(26, 14, '==========================', 0)
-        if state == 'idle':
-            c.put(41, 11, '____\n\\__/', 2)
-            c.put(38, 5-int(t)%2, 'z z', 2)
-        elif state == 'running':
-            c.put(35, 9+beat, '--o', 4)
-            c.put(40+beat, 9, '/\n/', 6)
-            c.put(38, 11, '\\~~~~~~/\n \\____/', 2)
-            c.put(44, 8+beat, '.', 6)
-        elif state == 'success':
-            c.put(41, 7-beat, '*', 4)
-            c.put(36, 10, '   i i i\n .-------.\n |~o~o~o~|\n [_______]', 5)
-        else:
-            c.put(41+beat, 6, '( (\n ) )', 0)
-            c.put(38, 10, '  .---.\n /xxxxx\\\n[_______]', 5)
-            c.put(37, 5, '!?', 5)
-        caption = {'idle': 'resting the dough (and me)', 'running': 'whisking up something good',
-                   'success': 'freshly baked. take a slice!', 'error': 'well... extra crispy.'}[state]
-    elif scene == 'wizard':
-        c.put(30, 4, '    /\\\n   / *\\\n  /____\\', 2)
-        eyes = {'idle': '- -', 'running': 'o o', 'success': '^ ^', 'error': '@ @'}[state]
-        c.put(32, 7, '('+eyes+')\n /v\\\n/ * \\\n|___|', 2)
-        if state == 'idle':
-            c.put(41, 5-int(t)%2, 'z Z', 2)
-            c.put(41, 12, '___\n\\_/', 0)
-        elif state == 'running':
-            c.put(38, 8-beat, '--/', 4)
-            c.put(43, 6+beat, '*', 4)
-            c.put(44, 9, 'o' if beat else '.', 3)
-            c.put(40, 12, '\\~~~/\n \\_/', 3)
-        elif state == 'success':
-            c.put(44, 6-beat, '*', 4)
-            c.put(42, 8-beat, '(\\ /)\n(o.o)\n(___)', 6)
-            c.put(40, 12, '======\n|____|', 2)
-        else:
-            c.put(41, 7+beat, 'p o o f', 5)
-            c.put(41, 11, ' @ @\n( - )\n/|_|\\', 3)
-            c.put(29, 8, '!', 5)
-        caption = {'idle': 'out of office. in a spell.', 'running': 'a pinch of hocus pocus',
-                   'success': 'ta-da! one bonus bunny.', 'error': 'that was NOT a frog spell'}[state]
-    elif scene == 'planet':
-        x = 31+beat if state == 'error' else 31
-        c.put(x, 6, '   .----.\n /        \\\n|          |\n|          |\n \\        /\n   `----\'', 1)
-        eyes = {'idle': '-  -', 'running': 'o  o', 'success': '^  ^', 'error': 'x  x'}[state]
-        c.put(x+4, 8, eyes, color)
-        c.put(x+5, 9, 'v' if state == 'success' else '~' if state == 'error' else '-', color)
-        if state == 'idle':
-            c.put(44, 5-int(t)%2, 'z Z', 2)
-            c.put(28, 13, '.', 0)
-        elif state == 'running':
-            a = t*2
-            c.put(36+math.cos(a)*12, 9+math.sin(a)*5, '(o)', 4)
-            c.put(x+2+int(t*3)%6, 7, '~', 3)
-            c.put(x+3+int(t*3)%5, 10, '~', 3)
-        elif state == 'success':
-            for sx, sy in ((27, 5), (46, 6), (29, 13), (45, 12)):
-                c.put(sx, sy-beat, '*', 4)
-            c.put(35, 4, '\\|/\n===', 4)
-        else:
-            c.put(43, 4+beat, '\\\\\n (@)', 4)
-            c.put(40, 6, '#', 5)
-            c.put(28, 6+beat, '!', 5)
-        caption = {'idle': 'do not disturb this world', 'running': 'a world of work to do',
-                   'success': 'you are out of this world!', 'error': 'ow. who ordered a meteor?'}[state]
+            s.stamp(['kw', 'kk', 'kk'] if look >= 0 else ['wk', 'kk', 'kk'], ex+look, y-1, pal)
+    if blush:
+        s.stamp(['pp'], x-3, y+2, pal)
+        s.stamp(['pp'], x+gap+2, y+2, pal)
+    if not mouth:
+        return
+    mx = x+gap//2
+    if mood == 'happy':
+        s.stamp(['kkkk', '.pp.'], mx-1, y+2, pal)
+    elif mood in ('shock', 'dizzy'):
+        s.stamp(['.k.', 'k.k', '.k.'], mx, y+2, pal)
+    elif mood == 'sleep':
+        s.stamp(['.k'], mx, y+3, pal)
     else:
-        raise ValueError(f'Unknown scene: {scene}')
-    c.put(4, 17, '_'*68, 0)
-    c.put((W-len(caption))//2, 19, caption, color)
-    return c
+        s.stamp(['k.k', '.k.'], mx, y+2, pal)
+
+
+def apart(accent, avoid, fallback):
+    hue = colorsys.rgb_to_hsv(*(k/255 for k in rgb(accent)))[0]*360
+    gap = abs((hue-avoid+180) % 360-180)
+    return accent if gap > 45 else fallback
+
+
+def draw_cat(s, state, i, accent):
+    fur, pink = shades('#f4a259'), shades('#ff9fb4')
+    cream = ((255, 251, 240), (255, 236, 206), (238, 194, 158))
+    bob, shake = 0, 0
+    wave = math.sin(i/FRAMES*2*math.pi)
+    tail = wave*.5
+    if state == 'idle':
+        bob = 1 if i >= 4 else 0
+    elif state == 'running':
+        bob = -(i % 2)
+        tail = math.sin(i/FRAMES*4*math.pi)*1.6
+    elif state == 'success':
+        bob = [0, -2, -3, -2, 0, -1, 0, 0][i]
+        tail = wave*1.2
+    else:
+        shake = [0, -1, 1, -1, 1, 0, 0, 0][i]
+    cx = 15+shake
+    s.shadow = (16, 30.6, 10)
+    pts = [(cx+6+t, 29) for t in range(5)] + [(cx+11.2, 27.6+tail*.3), (cx+12+tail*.4, 25.8-max(tail, 0)), (cx+11.6+tail, 24.2-max(tail, 0)*1.2)]
+    s.blob(pts, 1.5, fur)
+    s.fill(ellipse(cx, 24.4, 8.2+(1 if state == 'error' else 0), 6.2-bob*.3), fur)
+    s.fill(ellipse(cx, 26.2, 4.2, 3.6), cream, light=None)
+    hy = 15+bob
+    ear = 2 if state == 'error' else 0
+    for side in (-1, 1):
+        ex = cx+side*6.2
+        s.fill(triangle((ex-side*3.6, hy-2), (ex+side*1+side*ear, hy-9.6+ear*1.6), (ex+side*3.8, hy-2.4+ear)), fur)
+        s.fill(triangle((ex-side*1.6, hy-3), (ex+side*.9+side*ear, hy-7.6+ear*1.6), (ex+side*2.4, hy-3.4+ear)), pink, light=None, rim=False)
+    acc = shades(apart(accent, 28, '#5fb4d9'))
+    s.fill(ellipse(cx, hy+.4, 9.2, 6.9), fur, edge=acc[1], edge_from=hy+4)
+    s.fill(ellipse(cx, hy+3.6, 3.2, 1.9), cream, light=None)
+    for px, py in ((0, -6), (0, -5), (-3, -5), (3, -5)):
+        s.dot(cx+px, hy+py, fur[2])
+    paw = (1 if i % 4 < 2 else -1) if state == 'running' else 0
+    for side, lift in ((-1, max(paw, 0)), (1, max(-paw, 0))):
+        s.fill(ellipse(cx+side*3.6, 29.7-lift*1.5, 2.3, 1.5), cream)
+    s.fill(ellipse(cx, hy+8.6, 1.2, 1.2), shades('#ffd65c'), rim=False)
+    mood = {'idle': 'sleep', 'running': 'open', 'success': 'happy', 'error': 'shock'}[state]
+    look = -1 if state == 'running' and i % 4 >= 2 else 0
+    face(s, cx-4, hy+1, mood, gap=8, look=look)
+    if state == 'idle':
+        zzz(s, i, 21, 6)
+    elif state == 'running':
+        ball = shades(apart(accent, 28, '#7aa7ff'))
+        bx = [3, 3.6, 4.4, 5, 5.4, 5, 4.4, 3.6][i]
+        by = 27.6-[0, 1.4, 2.2, 1.4, 0, .8, 1, .4][i]
+        s.fill(ellipse(bx, by, 2.7, 2.7), ball, layer='fx')
+        s.dot(bx-1+(i % 2), by-1, ball[2], 'fx')
+        s.dot(bx+(i % 2), by, ball[2], 'fx')
+    elif state == 'success':
+        hearts(s, i, [(24, 8), (1, 11)])
+    else:
+        drop(s, cx+9, hy-5)
+        bang(s, 3, 5+(i % 2))
+
+
+def leaf(s, x, y, dx, dy, length, colors, layer='body'):
+    pts = [(x+dx*t, y+dy*t) for t in (k*length/4 for k in range(5))]
+    tests = [ellipse(px, py, r, r) for (px, py), r in zip(pts, (1, 1.5, 1.7, 1.4, .9))]
+    s.fill(lambda a, b: any(t(a, b) for t in tests), colors, layer=layer)
+
+
+def flower(s, x, y, size, petal, layer='body'):
+    hue = colorsys.rgb_to_hsv(*(k/255 for k in petal[1]))[0]*360
+    middle = shades('#e0784e' if 25 < hue < 75 else '#ffd65c')
+    if size == 0:
+        s.fill(ellipse(x, y, 1.4, 1.8), petal, layer=layer)
+        return
+    d, r = (1.5, 1.3) if size == 1 else (2.5, 1.8)
+    for a in range(5):
+        ang = a*2*math.pi/5-math.pi/2
+        s.fill(ellipse(x+math.cos(ang)*d, y+math.sin(ang)*d, r, r), petal, light=None, edge=petal[2], layer=layer)
+    s.fill(ellipse(x, y, 1.2, 1.2), middle, rim=False, light=None, layer=layer)
+
+
+def draw_garden(s, state, i, accent):
+    clay, green = shades('#e0784e'), shades('#6cc96a')
+    hop = [0, -1, -2, -1, 0, -1, 0, 0][i] if state == 'success' else 0
+    shake = [0, -1, 1, -1, 1, 0, 0, 0][i] if state == 'error' else 0
+    cx, top = 16+shake, 19+hop
+    s.shadow = (16, 30.6, 8.5)
+    sway = math.sin(i/FRAMES*2*math.pi)
+    if state == 'error':
+        green = shades('#a7b85a')
+        path = [(cx, top), (cx, top-6), (cx+1, top-8), (cx+3, top-9), (cx+5, top-8), (cx+6, top-6)]
+        for a, b in zip(path, path[1:]):
+            s.line(a[0], a[1], b[0], b[1], green[2])
+            s.line(a[0]+1, a[1]+1, b[0]+1, b[1]+1, green[1])
+        leaf(s, cx, top-4, -1.2, 1, 3.8, green)
+        leaf(s, cx+1, top-4, 1.2, 1.1, 3.8, green)
+        s.fill(ellipse(cx+6.8, top-4.5, 1.4, 1.8), shades('#c9a26a'))
+        if i < 7:
+            fx, fy = 25+round(math.sin(i*1.3)*1.5), 7+i*1.8
+            s.stamp(['.d', 'dd', 'd.'] if i % 2 else ['d.', 'dd', '.d'], fx, fy, {'d': (201, 162, 106)}, 'fx')
+    else:
+        if state == 'idle':
+            stem, lean, droop = 5, sway*.4, .45
+        elif state == 'running':
+            stem, lean, droop = 7, sway*.8, -.5 if i % 2 else .1
+        else:
+            stem, lean, droop = 9, sway*.4, -.25
+        tip = (cx+lean, top-stem)
+        s.line(cx, top, tip[0], tip[1], green[2])
+        s.line(cx+1, top, tip[0]+1, tip[1], green[1])
+        mid = (cx+lean*.5, top-stem*.5)
+        leaf(s, mid[0], mid[1], -1.2, -.3+droop, 4.6, green)
+        leaf(s, mid[0]+1, mid[1]-1, 1.2, -.5+droop, 4.6, green)
+        if state == 'success':
+            flower(s, tip[0]+.5, tip[1]-1, min(i, 2), shades(apart(accent, 110, '#ff8fb8'), .3, .3))
+            sparkles(s, i, [(5, 8), (27, 6), (26, 16)])
+        else:
+            s.fill(ellipse(tip[0]+.5, tip[1]-.5, 1.3, 1.7), green)
+    s.fill(rrect(cx-8.5, top-.5, cx+8.5, top+3.5, 1.2), clay)
+    s.fill(ellipse(cx, top+.4, 6.6, .9), shades('#6e4634'), rim=False, light=None)
+    s.fill(lambda x, y: top+3 <= y <= 30.5 and abs(x-cx) <= 7.2-(y-top-3)*.18, clay, edge=clay[2], edge_from=top+3)
+    band = shades(apart(accent, 16, '#6fb6e8'))
+    s.paint(lambda x, y: top+9 <= y < top+10 and abs(x-cx) < 8, band[1])
+    mood = {'idle': 'sleep', 'running': 'open', 'success': 'happy', 'error': 'shock'}[state]
+    face(s, cx-4, top+5, mood, gap=8, look=0)
+    if state == 'idle':
+        zzz(s, i, 21, 7)
+    elif state == 'running':
+        for k in range(3):
+            phase = (i/FRAMES+k/3) % 1
+            drop(s, cx-6+k*5, 1+phase*(top-stem-2))
+    elif state == 'error':
+        bang(s, 4, 6+(i % 2))
+
+
+def draw_robot(s, state, i, accent):
+    metal, dark, screen = shades('#a9bbd6'), shades('#6c7a96'), shades('#23304a', .15, .2)
+    glow = (126, 245, 214) if state != 'error' else (255, 110, 120)
+    bob = (1 if i >= 4 else 0) if state == 'idle' else 0
+    if state == 'success':
+        bob = [0, -1, -2, -1, 0, -1, 0, 0][i]
+    shake = [0, -1, 1, -1, 1, 0, 0, 0][i] if state == 'error' else 0
+    cx = 16+shake
+    s.shadow = (16, 30.6, 8)
+    s.fill(rrect(cx-5, 27.5, cx+5, 30.5, 1.5), dark)
+    for k in (-3, 0, 3):
+        s.dot(cx+k+(i % 2 if state == 'running' else 0), 29, dark[2])
+    s.fill(rrect(cx-5.5, 20+bob*.5, cx+5.5, 28, 2), metal)
+    arm = 0
+    if state == 'running':
+        arm = 1 if i % 4 < 2 else -1
+    for side in (-1, 1):
+        up = state == 'success' and i % 4 < 3
+        ay = 21.5 if up else 23.5+arm*side
+        s.fill(rrect(cx+side*7.4-1.4, ay-(4 if up else 0), cx+side*7.4+1.4, ay+3, 1.4), metal)
+    acc = shades(apart(accent, 215, '#ff9a5c'))
+    lights = 3
+    for k in range(lights):
+        on = (k <= i % 4) if state == 'running' else (state == 'success') or (state == 'idle' and k == 0 and i < 4)
+        s.dot(cx-2+k*2, 24+bob*.5, acc[0] if on else dark[2])
+        s.dot(cx-2+k*2, 25+bob*.5, acc[1] if on else dark[2])
+    hy = 7+bob
+    s.line(cx, hy-4, cx, hy, dark[1])
+    blink = state == 'running' and i % 2 or state == 'success' or state == 'idle' and i < 2
+    s.fill(ellipse(cx+.5, hy-4.5, 1.8, 1.8), shades('#ff6b7a' if state == 'error' else apart(accent, 215, '#ff9a5c')) if blink or state == 'error' else dark, light=None)
+    for side in (-1, 1):
+        s.fill(rrect(cx+side*9.6-1.5, hy+4, cx+side*9.6+1.5, hy+9, 1), dark)
+    s.fill(rrect(cx-8.5, hy, cx+8.5, hy+13, 3), metal)
+    s.fill(rrect(cx-6.5, hy+2, cx+6.5, hy+11, 2), screen, rim=False, light=None)
+    g = {'g': glow, 'p': (255, 138, 160)}
+    ex, ey = cx-4, hy+5
+    if state == 'idle':
+        for e in (ex, ex+6):
+            s.stamp(['ggg'], e-1, ey+1, g)
+    elif state == 'running':
+        look = [0, 1, 1, 0, 0, -1, -1, 0][i]
+        for e in (ex, ex+6):
+            s.stamp(['gg', 'gg'], e+look, ey, g)
+    elif state == 'success':
+        for e in (ex, ex+6):
+            s.stamp(['.g.', 'g.g'], e-1, ey, g)
+        s.stamp(['g..g', '.gg.'], cx-2, ey+3, g)
+    else:
+        for e in (ex, ex+6):
+            s.stamp(['g.g', '.g.', 'g.g'], e-1, ey-1, g)
+        s.stamp(['.gg.', 'g..g'], cx-2, ey+3, g)
+    if state != 'success':
+        s.stamp(['pp'], ex-2, ey+3, g)
+        s.stamp(['pp'], ex+7, ey+3, g)
+    if state == 'idle':
+        zzz(s, i, 21, 5)
+    elif state == 'running':
+        if i % 2:
+            s.stamp(['y.', '.y'], cx+10, hy-3, {'y': (255, 214, 92)}, 'fx')
+    elif state == 'success':
+        sparkles(s, i, [(4, 6), (27, 4), (28, 18), (3, 18)])
+    else:
+        puff(s, i, cx+10, hy+2, (214, 210, 224))
+        if i % 2:
+            s.stamp(['y.y', '.y.', 'y.y'], cx-1, hy-8, {'y': (255, 214, 92)}, 'fx')
+
+
+def draw_baker(s, state, i, accent):
+    crust = shades('#c9813f' if state != 'error' else '#5e3f31')
+    crumb = shades('#f8d9a0' if state != 'error' else '#93654a', .45, .25)
+    if state == 'success':
+        crumb = shades('#fbcf72', .45, .25)
+    hop = 0
+    if state == 'running':
+        hop = [0, -1, -2, -1, 0, -1, -2, -1][i]
+    elif state == 'success':
+        hop = [0, -1, -2, -1, 0, -1, 0, 0][i]
+    elif state == 'idle':
+        hop = 1 if i >= 4 else 0
+    shake = [0, -1, 1, -1, 1, 0, 0, 0][i] if state == 'error' else 0
+    cx = 16+shake
+    s.shadow = (16, 30.6, 8.5)
+    for side in (-1, 1):
+        s.fill(rrect(cx+side*3.5-1.2, 27+hop, cx+side*3.5+1.2, 30.4, .8), shades('#6b4a3a'))
+    top = 17+hop
+    body = lambda x, y: ellipse(cx, top, 10, 5)(x, y) or rrect(cx-8.4, top, cx+8.4, 28.6+hop, 2.5)(x, y)
+    s.fill(body, crust)
+    inner = lambda x, y: ellipse(cx, top+.6, 8.4, 3.7)(x, y) or rrect(cx-6.9, top+.6, cx+6.9, 27.2+hop, 2)(x, y)
+    s.fill(inner, crumb, light=(1, 1))
+    arm = (1 if i % 2 else -1) if state == 'running' else 0
+    for side in (-1, 1):
+        ay = 22+hop-(3 if state == 'success' and i % 4 < 3 else 0)+arm*side
+        s.fill(ellipse(cx+side*9.4, ay, 1.6, 1.6), crust)
+    if state == 'running':
+        wx = cx+10.6
+        s.line(wx, 22+hop+arm, wx, 18+hop+arm, (150, 156, 176))
+        s.fill(ellipse(wx+.5, 15.6+hop+arm, 1.6, 2.4), ((250, 250, 255), (214, 220, 234), (150, 156, 176)), rim=False)
+    hat = ((255, 255, 255), (246, 242, 236), (200, 194, 212))
+    tilt = 1 if state == 'idle' else -1 if state == 'error' else 0
+    hy = 10+hop
+    s.fill(rrect(cx-4.2+tilt, hy-1, cx+4.2+tilt, hy+2.6, .8), hat, light=(1, 0))
+    for k, (dx, dy, r) in enumerate(((-3.4, -2.6, 2.8), (3.4, -2.6, 2.8), (0, -3.8, 3.2))):
+        s.fill(ellipse(cx+dx+tilt*1.6, hy+dy, r, r*.95), hat, edge=hat[2], edge_from=hy-8)
+    mood = {'idle': 'sleep', 'running': 'open', 'success': 'happy', 'error': 'shock'}[state]
+    face(s, cx-4, 21+hop, mood, gap=8)
+    if state == 'idle':
+        zzz(s, i, 21, 6)
+    elif state == 'running':
+        for k in range(2):
+            phase = (i/FRAMES+k/2) % 1
+            if phase < .75:
+                s.fill(ellipse(4+k*24+phase*2*(1-2*k), 26-phase*8, 1.7-phase, 1.7-phase), shades('#fff6e6'), layer='fx')
+    elif state == 'success':
+        sparkles(s, i, [(4, 12), (28, 9), (27, 24)])
+        hearts(s, i, [(0, 22)])
+    else:
+        puff(s, i, cx+8, hy-1, (110, 104, 118))
+        puff(s, (i+3) % FRAMES, cx-8, hy+2, (130, 124, 138))
+        bang(s, 3, 14+(i % 2))
+
+
+def draw_wizard(s, state, i, accent):
+    robe, skin, beard = shades('#7a63d9'), shades('#ffd2ad'), ((255, 255, 255), (238, 236, 246), (196, 192, 214))
+    wood, gem = shades('#9b6a43'), shades(apart(accent, 255, '#5fe0d0'))
+    bob = (1 if i >= 4 else 0) if state == 'idle' else 0
+    if state == 'success':
+        bob = [0, -2, -3, -2, 0, -1, 0, 0][i]
+    shake = [0, -1, 1, -1, 1, 0, 0, 0][i] if state == 'error' else 0
+    cx = 14+shake
+    s.shadow = (15, 30.6, 9)
+    staff_x = cx+9
+    lift = -1 if state == 'running' and i % 4 < 2 else -2 if state == 'success' else 0
+    s.line(staff_x, 12+lift+bob, staff_x, 30, wood[2])
+    s.line(staff_x+1, 13+lift+bob, staff_x+1, 30, wood[1])
+    s.fill(lambda x, y: 18+bob <= y <= 30.5 and abs(x-cx) <= 4+(y-18-bob)*.42, robe)
+    for k in range(3):
+        s.dot(cx-3+k*3, 27+(k % 2), gem[0])
+    s.fill(ellipse(staff_x+.5, 22+bob+lift, 1.7, 1.5), skin)
+    s.fill(ellipse(cx, 15+bob, 5.2, 4.6), skin)
+    hy = 11+bob
+    droop = (1.5 if state == 'idle' else -1.5 if state == 'error' else 0)+math.sin(i/FRAMES*2*math.pi)*.6
+    s.fill(lambda x, y: hy-1 <= y <= hy+1.6 and abs(x-cx) <= 9-(y < hy)*.8, robe)
+    s.fill(triangle((cx-5.6, hy-.5), (cx+5.6, hy-.5), (cx+2+droop*1.4, hy-10)), robe)
+    s.paint(lambda x, y: hy-2.5 <= y < hy-1 and abs(x-cx) < 6, gem[1])
+    star = {'y': (255, 214, 92), 'h': WHITE}
+    s.stamp(['.y.', 'yhy', '.y.'], cx-3, hy-6, star)
+    s.fill(lambda x, y: ellipse(cx, 19.6+bob, 5, 4.4)(x, y) and y > 16.5+bob, beard)
+    s.fill(ellipse(cx, 23.4+bob, 3, 2.4), beard)
+    s.fill(ellipse(cx, 17.5+bob, 1.3, 1), shades('#ffb08c'), rim=False, light=None)
+    k = {'k': INK, 'w': WHITE, 'p': (255, 138, 160)}
+    ey = 14+bob
+    for ex in (cx-3, cx+2):
+        if state == 'idle':
+            s.stamp(['kk'], ex, ey+1, k)
+        elif state == 'running':
+            s.stamp(['kw', 'kk'], ex, ey, k)
+        elif state == 'success':
+            s.stamp(['.k.', 'k.k'][::1], ex-(ex < cx), ey, k)
+        else:
+            s.stamp(['k.k', '.k.', 'k.k'], ex-(ex < cx), ey-1, k)
+    s.stamp(['p'], cx-5, ey+2, k)
+    s.stamp(['p'], cx+5, ey+2, k)
+    gy = 10+lift+bob
+    glow = state in ('running', 'success') and i % 2
+    s.fill(ellipse(staff_x+.5, gy, 2.1+glow*.4, 2.1+glow*.4), gem)
+    s.dot(staff_x, gy-1, WHITE)
+    if state == 'idle':
+        zzz(s, i, 21, 4)
+    elif state == 'running':
+        for k2 in range(3):
+            ang = i/FRAMES*2*math.pi+k2*2.1
+            px, py = staff_x+.5+math.cos(ang)*4.6, gy+math.sin(ang)*3.4
+            s.stamp(STAR_S, px-1, py-1, FX, 'fx')
+    elif state == 'success':
+        sparkles(s, i, [(staff_x+5, gy-3), (staff_x+6, gy+5), (3, 6), (4, 20), (staff_x-7, gy-2)])
+    else:
+        puff(s, i, staff_x+.5, gy-2, (226, 220, 236))
+        s.dot(cx-2, ey+3, (120, 110, 130))
+        s.dot(cx+3, ey-1+3, (120, 110, 130))
+
+
+def draw_planet(s, state, i, accent):
+    sea, land = shades('#4fb3e8'), shades('#7bd46a')
+    hop = [0, -1, -2, -1, 0, -1, 0, 0][i] if state == 'success' else 0
+    hit = state == 'error'
+    shake = [0, 0, 0, -1, 1, -1, 1, 0][i] if hit else 0
+    cx, cy, r = 16+shake, 16.5+hop, 9.4
+    s.shadow = (16, 30.6, 7)
+    spin = {'idle': .1, 'running': .4, 'success': .2, 'error': .15}[state]
+    rot = i*spin
+    ring = shades(apart(accent, 200, '#ffb86b'))
+    def ring_test(x, y):
+        dx, dy = (x-cx)/14.2, (y-cy-2.5)/3.4
+        d = dx*dx+dy*dy
+        return .5 <= d <= 1
+    s.fill(lambda x, y: ring_test(x, y) and y < cy+2.5, ring, light=None)
+    s.fill(ellipse(cx, cy, r, r), sea, light=(1.2, 1.6))
+    blobs = [(0, .62, .65, .26), (2.2, -.6, .6, .26), (3.9, .55, .5, .3), (5.3, -.68, .6, .24)]
+    for y in range(H):
+        for x in range(W):
+            dx, dy = (x+.5-cx)/r, (y+.5-cy)/r
+            if dx*dx+dy*dy > .9:
+                continue
+            lat = math.asin(max(-1, min(1, dy)))
+            c = math.cos(lat)
+            if c < .05 or abs(dx/c) > 1:
+                continue
+            lon = math.asin(dx/c)+rot
+            for bl, bt, wl, wt in blobs:
+                dl = (lon-bl+math.pi) % (2*math.pi)-math.pi
+                if (dl/wl)**2+((lat-bt)/wt)**2 <= 1:
+                    edge = dx*dx+dy*dy > .55 and (dx+dy) > .3
+                    s.dot(x, y, land[2] if edge else land[1] if dx+dy > -.6 else land[0])
+                    break
+    def front(x, y):
+        return ring_test(x, y) and y >= cy+2.5
+    s.fill(front, ring, light=None)
+    mood = {'idle': 'sleep', 'running': 'open', 'success': 'happy', 'error': 'dizzy'}[state]
+    face(s, cx-4, cy-3, mood, gap=8)
+    if state == 'idle':
+        zzz(s, i, 21, 3)
+    elif state == 'running':
+        ang = i/FRAMES*2*math.pi
+        mx, my = cx+math.cos(ang)*13, cy-1+math.sin(ang)*5
+        moon = shades('#d8d4e6')
+        layer = 'fx' if math.sin(ang) > -.2 else 'body'
+        if layer == 'body':
+            s.fill(ellipse(mx, my, 2, 2), moon)
+        else:
+            s.fill(ellipse(mx, my, 2, 2), moon, layer='fx')
+    elif state == 'success':
+        sparkles(s, i, [(3, 4), (28, 5), (4, 24), (28, 24), (16, 3)])
+    else:
+        if i < 3:
+            mx, my = 28-i*3.5, 1+i*3.5
+            rock = shades('#b07a5a')
+            s.line(mx+1, my-1, mx+3, my-3, (255, 200, 90), 'fx')
+            s.fill(ellipse(mx, my, 1.6, 1.6), rock, layer='fx')
+        else:
+            puff(s, i-3, cx+5, cy-7, (238, 232, 242))
+            if i % 2:
+                s.stamp(STAR_S, 2, 6, FX, 'fx')
+                s.stamp(STAR_S, 27, 9, FX, 'fx')
+
+
+DRAW = {'cat': draw_cat, 'garden': draw_garden, 'robot': draw_robot, 'baker': draw_baker,
+        'wizard': draw_wizard, 'planet': draw_planet}
+
+
+def render(scene, state, i, accent=FALLBACK_ACCENT):
+    s = Sprite()
+    DRAW[scene](s, state, i % FRAMES, accent)
+    return s.image()
+
+
+@lru_cache(maxsize=1024)
+def frame_png(scene, state, i, scale=6, accent=FALLBACK_ACCENT, pad=(0, 0, 0, 0)):
+    image = render(scene, state, i, accent).resize((W*scale, H*scale), Image.Resampling.NEAREST)
+    if any(pad):
+        left, top, right, bottom = pad
+        padded = Image.new('RGBA', (image.width+left+right, image.height+top+bottom))
+        padded.paste(image, (left, top))
+        image = padded
+    output = BytesIO()
+    image.save(output, format='PNG', optimize=False, compress_level=6)
+    return output.getvalue()
+
+
+def frame_index(elapsed, state):
+    return int(elapsed*FPS[state]) % FRAMES
+
+
+def data_uri(png):
+    return 'data:image/png;base64,'+base64.b64encode(png).decode()
+
+
+def kitty_upload(image_id, png):
+    data = base64.b64encode(png).decode()
+    chunks = [data[k:k+4096] for k in range(0, len(data), 4096)]
+    out = []
+    for n, chunk in enumerate(chunks):
+        more = 1 if n < len(chunks)-1 else 0
+        head = f'a=t,f=100,i={image_id},q=2,m={more}' if n == 0 else f'm={more}'
+        out.append(f'\x1b_G{head};{chunk}\x1b\\')
+    return ''.join(out)
+
+
+def halfblocks(image):
+    pixels = image.load()
+    rows = []
+    for y in range(0, image.height, 2):
+        parts = []
+        for x in range(image.width):
+            top = pixels[x, y]
+            bottom = pixels[x, y+1] if y+1 < image.height else (0, 0, 0, 0)
+            if top[3] < 128 and bottom[3] < 128:
+                parts.append('\x1b[0m ')
+            elif top[3] < 128:
+                parts.append('\x1b[0m\x1b[38;2;%d;%d;%dm' % bottom[:3] + LOWER)
+            elif bottom[3] < 128:
+                parts.append('\x1b[0m\x1b[38;2;%d;%d;%dm' % top[:3] + UPPER)
+            else:
+                parts.append('\x1b[38;2;%d;%d;%dm\x1b[48;2;%d;%d;%dm' % (top[:3]+bottom[:3]) + UPPER)
+        rows.append(''.join(parts)+'\x1b[0m')
+    return rows
 
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('scene', choices=KEYS, nargs='?', default='cat')
     parser.add_argument('--stream', action='store_true')
-    parser.add_argument('--state', choices=['idle', 'running', 'success', 'error'], default='running')
+    parser.add_argument('--state', choices=STATES, default='running')
+    parser.add_argument('--scale', type=int, default=8)
     args = parser.parse_args()
     input_stream = sys.stdin.buffer.raw
     scene, state = args.scene, args.state
+    accent = theme_accent()
     paused, elapsed, previous = False, 0, time.monotonic()
     saved = None
+    kitty = not args.stream and (os.environ.get('KITTY_WINDOW_ID') or os.environ.get('TERM') == 'xterm-kitty')
+    uploaded = set()
+    shown = None
     if not args.stream:
         if not sys.stdin.isatty() or not sys.stdout.isatty():
             parser.error('Open in a terminal, or use --stream for JSON frames.')
         saved = termios.tcgetattr(sys.stdin)
         tty.setcbreak(sys.stdin)
-        sys.stdout.write('\x1b[?1049h\x1b[?25l\x1b[48;2;13;18;32m\x1b[2J')
+        sys.stdout.write('\x1b[?1049h\x1b[?25l\x1b[2J')
     def stop(signum, _):
         raise SystemExit(128+signum)
     signal.signal(signal.SIGTERM, stop)
@@ -216,6 +717,7 @@ def main():
             if not paused:
                 elapsed += now-previous
             previous = now
+            index = frame_index(elapsed, state)
             if args.stream:
                 if select.select([sys.stdin], [], [], 0)[0]:
                     line = input_stream.readline()
@@ -228,7 +730,14 @@ def main():
                     paused = settings['paused']
                     if settings['restart']:
                         elapsed = 0
-                print(json.dumps({'html': frame(scene, elapsed, state).encode(True)}), flush=True)
+                    accent = theme_accent()
+                    index = frame_index(elapsed, state)
+                key = (scene, state, index, accent)
+                if key != shown:
+                    png = frame_png(scene, state, index, args.scale, accent)
+                    print(json.dumps({'scene': scene, 'state': state, 'frame': index,
+                                      'size': W*args.scale, 'image': data_uri(png)}), flush=True)
+                    shown = key
             else:
                 if select.select([sys.stdin], [], [], 0)[0]:
                     key = input_stream.read(1).decode('latin1')
@@ -243,20 +752,45 @@ def main():
                     elif key in 'iswe':
                         state = dict(i='idle', s='success', w='running', e='error')[key]
                         elapsed = 0
+                    sys.stdout.write('\x1b[2J')
+                    shown = None
+                    index = frame_index(elapsed, state)
                 title = f'  {NAMES[KEYS.index(scene)]}  /  {state}  /  {"paused" if paused else "playing"}'
-                sys.stdout.write('\x1b[H\x1b[38;2;237;243;255m'+title.ljust(W)+'\r\n\r\n'+frame(scene, elapsed, state).encode()+
-                                 '\r\n\r\n\x1b[38;2;139;213;255m  1-6 scene   Space pause   R replay   Q quit'.ljust(W)+
-                                 '\r\n  I idle   W working   S success   E error'.ljust(W))
-                sys.stdout.flush()
-            time.sleep(1/12)
+                help_text = ['  1-6 scene   Space pause   R replay   Q quit',
+                             '  I idle   W working   S success   E error']
+                key = (scene, state, index)
+                if key != shown:
+                    out = ['\x1b[H\x1b[0m\x1b[1m'+title+'\x1b[0m\x1b[K\r\n\r\n']
+                    if kitty:
+                        image_id = 1+KEYS.index(scene)*64+STATES.index(state)*FRAMES+index
+                        if image_id not in uploaded:
+                            out.append(kitty_upload(image_id, frame_png(scene, state, index, args.scale, accent)))
+                            uploaded.add(image_id)
+                        out.append('\x1b_Ga=d,d=a,q=2\x1b\\\x1b[3;3H')
+                        out.append(f'\x1b_Ga=p,i={image_id},q=2,C=1\x1b\\')
+                        rows = os.get_terminal_size().lines
+                        out.append(f'\x1b[{rows-2};1H\x1b[2m'+help_text[0]+'\x1b[K\r\n'+help_text[1]+'\x1b[K\x1b[0m')
+                    else:
+                        image = render(scene, state, index, accent)
+                        cols = os.get_terminal_size().columns
+                        if cols >= W*2+4:
+                            image = image.resize((W*2, H*2), Image.Resampling.NEAREST)
+                        for row in halfblocks(image):
+                            out.append('  '+row+'\x1b[K\r\n')
+                        out.append('\r\n\x1b[2m'+help_text[0]+'\x1b[K\r\n'+help_text[1]+'\x1b[K\x1b[0m')
+                    sys.stdout.write(''.join(out))
+                    sys.stdout.flush()
+                    shown = key
+            time.sleep(1/30)
     except (KeyboardInterrupt, BrokenPipeError):
         pass
     finally:
         if saved is not None:
             termios.tcsetattr(sys.stdin, termios.TCSADRAIN, saved)
+            if kitty:
+                sys.stdout.write('\x1b_Ga=d,d=A,q=2\x1b\\')
             sys.stdout.write('\x1b[0m\x1b[?25h\x1b[?1049l')
             sys.stdout.flush()
-
 
 
 if __name__ == '__main__':

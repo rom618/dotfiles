@@ -17,7 +17,8 @@ MouseArea {
     property int selected: 0
     property string demoState: "running"
     property bool paused: false
-    property var preferences: ({scene: "cat", startup: true, ambient: true, commands: true})
+    property bool lightBackdrop: false
+    property var preferences: ({scene: "cat", startup: true, ambient: true, commands: true, size: 6})
     function savePreferences(changes) {
         root.preferences = Object.assign({}, root.preferences, changes);
         preferencesFile.setText(JSON.stringify(root.preferences) + "\n");
@@ -28,18 +29,18 @@ MouseArea {
         watchChanges: true
         onFileChanged: reload()
         onLoaded: {
-            root.preferences = JSON.parse(text());
-            root.selected = root.scenes.findIndex(s => s.key === root.preferences.scene);
+            root.preferences = Object.assign({size: 6}, JSON.parse(text()));
+            root.selected = Math.max(0, root.scenes.findIndex(s => s.key === root.preferences.scene));
         }
     }
     readonly property string script: Quickshell.shellPath("scripts/terminal-toys.py")
     readonly property var scenes: [
-        {key: "cat", name: "Terminal cat", icon: "pets"},
-        {key: "garden", name: "Growing garden", icon: "local_florist"},
-        {key: "robot", name: "Sleepy robot", icon: "smart_toy"},
-        {key: "baker", name: "Little baker", icon: "cake"},
-        {key: "wizard", name: "Pocket wizard", icon: "auto_fix_high"},
-        {key: "planet", name: "Little planet", icon: "public"}
+        {key: "cat", name: "Cat", icon: "pets"},
+        {key: "garden", name: "Sprout", icon: "local_florist"},
+        {key: "robot", name: "Robot", icon: "smart_toy"},
+        {key: "baker", name: "Toast", icon: "bakery_dining"},
+        {key: "wizard", name: "Wizard", icon: "auto_fix_high"},
+        {key: "planet", name: "Planet", icon: "public"}
     ]
     onClicked: menuOpen = !menuOpen
     Rectangle {
@@ -62,8 +63,8 @@ MouseArea {
             id: popup
             screen: root.QsWindow.window.screen
             color: "transparent"
-            implicitWidth: 700
-            implicitHeight: 706
+            implicitWidth: 460
+            implicitHeight: 600
             anchors.top: !Config.options.bar.bottom || Config.options.bar.vertical
             anchors.bottom: Config.options.bar.bottom && !Config.options.bar.vertical
             anchors.left: true
@@ -82,12 +83,12 @@ MouseArea {
             }
             Process {
                 id: renderer
-                command: ["python3", root.script, root.scenes[root.selected].key, "--stream", "--state", root.demoState]
+                command: ["python3", root.script, root.scenes[root.selected].key, "--stream", "--state", root.demoState, "--scale", "8"]
                 running: true
                 stdinEnabled: true
                 onStarted: popup.update(true)
                 stdout: SplitParser {
-                    onRead: data => popup.preview = JSON.parse(data).html
+                    onRead: data => popup.preview = JSON.parse(data).image
                 }
                 stderr: StdioCollector {
                     onStreamFinished: if (text.length) popup.failure = text
@@ -105,13 +106,13 @@ MouseArea {
 
                 ColumnLayout {
                     anchors.fill: parent
-                    anchors.margins: 18
+                    anchors.margins: 16
                     spacing: 10
                     RowLayout {
                         Layout.fillWidth: true
                         StyledText {
-                            text: "Terminal playground"
-                            font.pixelSize: 20
+                            text: "Terminal buddy"
+                            font.pixelSize: 18
                             font.bold: true
                             Layout.fillWidth: true
                         }
@@ -121,9 +122,52 @@ MouseArea {
                             onClicked: root.menuOpen = false
                         }
                     }
+                    Rectangle {
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+                        Layout.minimumHeight: 220
+                        color: root.lightBackdrop ? "#f6f3ec" : "#1e1e24"
+                        radius: 14
+                        clip: true
+                        Image {
+                            anchors.centerIn: parent
+                            visible: !popup.failure && popup.preview.length > 0
+                            source: popup.preview
+                            width: 192
+                            height: 192
+                            smooth: false
+                            mipmap: false
+                            fillMode: Image.PreserveAspectFit
+                        }
+                        StyledText {
+                            anchors.fill: parent
+                            anchors.margins: 12
+                            visible: popup.failure.length > 0
+                            text: popup.failure
+                            wrapMode: Text.Wrap
+                            font.pixelSize: 11
+                            color: "#ff92bd"
+                        }
+                        RippleButton {
+                            anchors.right: parent.right
+                            anchors.top: parent.top
+                            anchors.margins: 8
+                            implicitWidth: 30
+                            implicitHeight: 30
+                            buttonRadius: 15
+                            colBackground: "transparent"
+                            onClicked: root.lightBackdrop = !root.lightBackdrop
+                            contentItem: MaterialSymbol {
+                                anchors.centerIn: parent
+                                text: root.lightBackdrop ? "dark_mode" : "light_mode"
+                                iconSize: 18
+                                color: root.lightBackdrop ? "#4a4058" : "#cfc8dc"
+                            }
+                        }
+                    }
                     GridLayout {
                         Layout.fillWidth: true
-                        columns: 3
+                        columns: 6
                         rowSpacing: 6
                         columnSpacing: 6
                         Repeater {
@@ -133,7 +177,7 @@ MouseArea {
                                 required property var modelData
                                 required property int index
                                 Layout.fillWidth: true
-                                implicitHeight: 52
+                                implicitHeight: 54
                                 buttonRadius: Appearance.rounding.small
                                 toggled: root.selected === index
                                 colBackground: Appearance.colors.colLayer2
@@ -149,6 +193,7 @@ MouseArea {
                                         anchors.horizontalCenter: parent.horizontalCenter
                                         text: choice.modelData.icon
                                         iconSize: 20
+                                        fill: choice.toggled ? 1 : 0
                                         color: choice.toggled ? Appearance.colors.colOnSecondaryContainer : Appearance.colors.colOnLayer1
                                     }
                                     StyledText {
@@ -161,52 +206,86 @@ MouseArea {
                             }
                         }
                     }
-                    Rectangle {
-                        Layout.fillWidth: true
-                        Layout.fillHeight: true
-                        color: "#0d1220"
-                        radius: 12
-                        clip: true
-                        Text {
-                            anchors.centerIn: parent
-                            text: popup.failure || popup.preview
-                            textFormat: popup.failure ? Text.PlainText : Text.RichText
-                            font.family: "monospace"
-                            font.pixelSize: 12
-                            color: "#ff92bd"
-                        }
-                    }
                     RowLayout {
                         Layout.fillWidth: true
-                        StyledText {
-                            text: "Demo state"
-                            font.pixelSize: 12
-                            color: Appearance.colors.colSubtext
-                        }
+                        spacing: 6
                         Repeater {
-                            model: [{key: "idle", name: "Idle"}, {key: "running", name: "Working"}, {key: "success", name: "Success"}, {key: "error", name: "Error"}]
+                            model: [{key: "idle", name: "Idle", icon: "bedtime"}, {key: "running", name: "Busy", icon: "bolt"}, {key: "success", name: "Done", icon: "favorite"}, {key: "error", name: "Oops", icon: "error"}]
                             delegate: RippleButton {
                                 id: stateButton
                                 required property var modelData
                                 Layout.fillWidth: true
-                                implicitHeight: 30
-                                buttonRadius: 15
+                                implicitHeight: 32
+                                buttonRadius: 16
                                 toggled: root.demoState === modelData.key
                                 colBackgroundToggled: Appearance.colors.colSecondaryContainer
                                 onClicked: { root.demoState = modelData.key; popup.update(false); }
-                                contentItem: StyledText {
-                                    text: stateButton.modelData.name
-                                    horizontalAlignment: Text.AlignHCenter
-                                    font.pixelSize: 12
-                                    color: stateButton.toggled ? Appearance.colors.colOnSecondaryContainer : Appearance.colors.colOnLayer1
+                                contentItem: Row {
+                                    spacing: 4
+                                    anchors.centerIn: parent
+                                    MaterialSymbol {
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        text: stateButton.modelData.icon
+                                        iconSize: 16
+                                        fill: stateButton.toggled ? 1 : 0
+                                        color: stateButton.toggled ? Appearance.colors.colOnSecondaryContainer : Appearance.colors.colOnLayer1
+                                    }
+                                    StyledText {
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        text: stateButton.modelData.name
+                                        font.pixelSize: 12
+                                        color: stateButton.toggled ? Appearance.colors.colOnSecondaryContainer : Appearance.colors.colOnLayer1
+                                    }
                                 }
+                            }
+                        }
+                        RippleButton {
+                            implicitWidth: 32
+                            implicitHeight: 32
+                            buttonRadius: 16
+                            onClicked: { root.paused = !root.paused; popup.update(false); }
+                            contentItem: MaterialSymbol {
+                                anchors.centerIn: parent
+                                text: root.paused ? "play_arrow" : "pause"
+                                iconSize: 18
+                                color: Appearance.colors.colOnLayer1
                             }
                         }
                     }
                     RowLayout {
                         Layout.fillWidth: true
+                        StyledText {
+                            text: "Size in terminal"
+                            font.pixelSize: 12
+                            color: Appearance.colors.colSubtext
+                            Layout.fillWidth: true
+                        }
                         Repeater {
-                            model: [{key: "startup", name: "On opening"}, {key: "ambient", name: "Always visible"}, {key: "commands", name: "Command activity"}]
+                            model: [{size: 4, name: "S"}, {size: 6, name: "M"}, {size: 8, name: "L"}]
+                            delegate: RippleButton {
+                                id: sizeButton
+                                required property var modelData
+                                implicitWidth: 40
+                                implicitHeight: 28
+                                buttonRadius: 14
+                                toggled: root.preferences.size === modelData.size
+                                colBackgroundToggled: Appearance.colors.colSecondaryContainer
+                                onClicked: root.savePreferences({size: modelData.size})
+                                contentItem: StyledText {
+                                    text: sizeButton.modelData.name
+                                    horizontalAlignment: Text.AlignHCenter
+                                    font.pixelSize: 12
+                                    color: sizeButton.toggled ? Appearance.colors.colOnSecondaryContainer : Appearance.colors.colOnLayer1
+                                }
+                            }
+                        }
+                    }
+                    GridLayout {
+                        Layout.fillWidth: true
+                        columns: 3
+                        columnSpacing: 4
+                        Repeater {
+                            model: [{key: "startup", name: "Say hello"}, {key: "ambient", name: "Always there"}, {key: "commands", name: "React to commands"}]
                             delegate: RippleButtonWithIcon {
                                 required property var modelData
                                 Layout.fillWidth: true
@@ -220,34 +299,19 @@ MouseArea {
                             }
                         }
                     }
-                    StyledText {
-                        text: "Applied to Kitty terminals · selected animation and toggles are saved."
-                        font.pixelSize: 11
-                        color: Appearance.colors.colSubtext
-                    }
                     RowLayout {
                         Layout.fillWidth: true
-                        RippleButtonWithIcon {
-                            materialIcon: root.paused ? "play_arrow" : "pause"
-                            mainText: root.paused ? "Play" : "Pause"
-                            onClicked: { root.paused = !root.paused; popup.update(false); }
+                        StyledText {
+                            text: "Lives in the top-right corner of Kitty."
+                            font.pixelSize: 11
+                            color: Appearance.colors.colSubtext
+                            Layout.fillWidth: true
                         }
-                        RippleButtonWithIcon {
-                            materialIcon: "replay"
-                            mainText: "Replay"
-                            onClicked: popup.update(true)
-                        }
-                        Item { Layout.fillWidth: true }
                         RippleButtonWithIcon {
                             materialIcon: "terminal"
                             mainText: "Open in terminal"
-                            onClicked: Quickshell.execDetached(["kitty", "--class", "terminal-playground", "--title", "Terminal playground", "-o", "initial_window_width=90c", "-o", "initial_window_height=30c", "python3", root.script, root.scenes[root.selected].key, "--state", root.demoState])
+                            onClicked: Quickshell.execDetached(["kitty", "--class", "terminal-playground", "--title", "Terminal buddy", "-o", "initial_window_width=72c", "-o", "initial_window_height=26c", "python3", root.script, root.scenes[root.selected].key, "--state", root.demoState])
                         }
-                    }
-                    StyledText {
-                        text: "Preview mode · try the states above; terminal keys 1–6 switch animations."
-                        font.pixelSize: 11
-                        color: Appearance.colors.colSubtext
                     }
                 }
             }

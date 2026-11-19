@@ -1,97 +1,126 @@
-import hashlib
 import importlib.util
 import json
+import os
 import time
-from functools import lru_cache
-from io import BytesIO
 from pathlib import Path
 
-from PIL import Image, ImageDraw, ImageFont
-
 SETTINGS = Path.home() / '.local/state/quickshell/user/terminal-toys.json'
-SCRIPT = Path.home() / '.config/quickshell/ii/scripts/terminal-toys.py'
+SCRIPT = Path(os.environ.get('TERMINAL_TOYS_SCRIPT', Path.home() / '.config/quickshell/ii/scripts/terminal-toys.py'))
+DEFAULTS = {'scene': 'cat', 'startup': True, 'ambient': True, 'commands': True, 'size': 6}
+PAD = (0, 10, 14, 0)
+GREETING, AFTERGLOW, CHECK = 2, 2, 1
 spec = importlib.util.spec_from_file_location('terminal_toys', SCRIPT)
 toys = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(toys)
-font = ImageFont.truetype('/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf', 24)
 entries = {}
-preferences = {}
-stamp = None
+preferences = dict(DEFAULTS)
+accent = toys.FALLBACK_ACCENT
+stamps = {}
+checked = 0
 
 
-@lru_cache(maxsize=512)
-def glyph(ch, color):
-    image = Image.new('RGBA', (16, 28))
-    ImageDraw.Draw(image).text((0, 0), ch, font=font, fill=toys.COLORS[color],
-                               stroke_width=2, stroke_fill='#0d1220')
-    return image
+def changed(path):
+    try:
+        current = path.stat().st_mtime_ns
+    except OSError:
+        current = None
+    if stamps.get(path) == current:
+        return False
+    stamps[path] = current
+    return current is not None
 
 
-@lru_cache(maxsize=640)
-def picture(scene, state, step):
-    canvas = toys.frame(scene, step/10, state)
-    rows = [row[24:56] for row in canvas.cells[4:16]]
-    image = Image.new('RGBA', (len(rows[0])*16, len(rows)*28))
-    for y, row in enumerate(rows):
-        for x, (ch, color) in enumerate(row):
-            if ch != ' ':
-                image.alpha_composite(glyph(ch, color), (x*16, y*28))
-    image = image.crop(image.getbbox())
-    image.thumbnail((360, 160), Image.Resampling.LANCZOS)
-    padded = Image.new('RGBA', (image.width+16, image.height+12))
-    padded.paste(image, (0, 12))
-    output = BytesIO()
-    padded.save(output, format='PNG', compress_level=1)
-    data = output.getvalue()
-    return '/terminal-toys/'+hashlib.sha256(data).hexdigest(), data
+def refresh(now):
+    global preferences, accent, checked
+    if now-checked < CHECK:
+        return
+    checked = now
+    if changed(SETTINGS):
+        try:
+            loaded = json.loads(SETTINGS.read_text())
+            preferences = dict(DEFAULTS, **loaded) if isinstance(loaded, dict) else dict(DEFAULTS)
+        except (OSError, ValueError):
+            preferences = dict(DEFAULTS)
+        if preferences['scene'] not in toys.KEYS:
+            preferences['scene'] = DEFAULTS['scene']
+    if changed(toys.THEME):
+        accent = toys.theme_accent()
+
+
+def scale():
+    try:
+        return max(3, min(10, int(preferences.get('size', 6))))
+    except (TypeError, ValueError):
+        return 6
+
+
+def picture(scene, state, index, size=6, color=None):
+    color = color or accent
+    data = toys.frame_png(scene, state, index, size, color, PAD)
+    return f'/terminal-toys/v2/{scene}/{state}/{index}/{size}/{color.lstrip("#")}', data
+
+
+def warm(scene=None, size=None, color=None):
+    for key in [scene] if scene else toys.KEYS:
+        for state in toys.STATES:
+            for index in range(toys.FRAMES):
+                picture(key, state, index, size or scale(), color)
+
+
+def wanted_state(entry, now):
+    if preferences['commands'] and (entry['state'] == 'running' or now-entry['changed'] < AFTERGLOW):
+        return entry['state'], now-entry['changed']
+    if preferences['startup'] and now-entry['born'] < GREETING:
+        return 'success', now-entry['born']
+    if preferences['ambient']:
+        return 'idle', now-entry['born']
+    return None, 0
 
 
 def tick(boss):
-    global preferences, stamp
-    current = SETTINGS.stat().st_mtime_ns
-    if current != stamp:
-        preferences = json.loads(SETTINGS.read_text())
-        stamp = current
     now = time.monotonic()
+    refresh(now)
     for wid, entry in list(entries.items()):
         window = boss.window_id_map.get(wid)
         if window is None:
             del entries[wid]
             continue
-        startup = preferences['startup'] and now-entry['born'] < 2.5
-        command = preferences['commands'] and (entry['state'] == 'running' or now-entry['changed'] < 2)
-        wanted = preferences['ambient'] or startup or command
-        if not wanted:
-            if entry['shown']:
+        state, elapsed = wanted_state(entry, now)
+        if state is None:
+            if entry['logo']:
                 window.set_logo('')
-                entry['shown'] = False
+                entry['logo'] = None
             continue
         if not window.is_visible_in_layout:
             continue
-        state = entry['state'] if command else 'running' if startup else 'idle'
-        step = int((now-entry['born'])*10)%160
-        path, data = picture(preferences['scene'], state, step)
-        window.set_logo(path, 'top-right', .85, data)
-        entry['shown'] = True
+        path, data = picture(preferences['scene'], state, toys.frame_index(elapsed, state), scale())
+        if path != entry['logo']:
+            window.set_logo(path, 'top-right', .9, data)
+            entry['logo'] = path
+
+
+def is_shell(window):
+    return Path(window.child.argv[0]).name.lstrip('-') == 'fish'
 
 
 def on_load(boss, data):
     from kitty.fast_data_types import add_timer
     for window in boss.all_windows:
-        if Path(window.child.argv[0]).name.lstrip('-') != 'fish':
+        if not is_shell(window):
             continue
         for name in ('on_resize', 'on_cmd_startstop', 'on_close'):
             getattr(window.watchers, name).append(globals()[name])
         on_resize(boss, window, {})
         if window.last_cmd_output_start_time:
             entries[window.id]['state'] = 'running'
+    refresh(time.monotonic())
     add_timer(lambda timer: tick(boss), .1, True)
 
 
 def on_resize(boss, window, data):
-    if window.id in entries or Path(window.child.argv[0]).name.lstrip('-') != 'fish':
+    if window.id in entries or not is_shell(window):
         return
-    entries[window.id] = dict(born=time.monotonic(), changed=0, state='idle', shown=False)
+    entries[window.id] = dict(born=time.monotonic(), changed=float('-inf'), state='idle', logo=None)
 
 
 def on_cmd_startstop(boss, window, data):
