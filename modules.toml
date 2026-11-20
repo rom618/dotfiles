@@ -193,10 +193,16 @@ sudo = true
 packages = { arch = ["sddm", "rsync", "git"], ubuntu = ["sddm", "rsync", "git"] }
 
 [module.terminal-toys]
-description = "Terminal Toys: a bar button that plays small animated scenes (garden, cat...) in kitty windows, drawn by a kitty watcher"
+description = "Terminal Toys: a bar button that plays small animated pixel characters (cat, sprout, robot, toast, plus game fan art: Navi, a Zelda chest, a Site of Grace, the Eye of Cthulhu, a Lunar Tear, Grimoire Weiss) in kitty windows; they react to commands and to coding agents, with the theme's sounds"
 default = false
 desktop = true
 packages = { arch = ["python-pillow"], ubuntu = ["python3-pil"] }
+
+[module.bar-tools]
+description = "Bar: a tools popup with Wolfram Alpha (needs your own AppID in ~/.config/wolfram/appid), unit and currency converter (qalc), translation (Linguee, plus any OpenAI-compatible model set in ~/.config/quickshell-tools/translate.json for sentences), dictionary (Wiktionary), color picker and the sidebar timer"
+default = false
+desktop = true
+packages = { arch = ["libqalculate", "hyprpicker", "python"], ubuntu = ["qalc", "python3"] }
 
 [module.power-button]
 description = "The power button no longer powers off; lid close policy"
@@ -312,7 +318,14 @@ sudo = true
 "home/.config/quickshell/ii/modules/ii/bar/SysTray.qml" = "bar-layout"
 "home/.config/quickshell/ii/modules/ii/bar/TerminalToys.qml" = "terminal-toys"
 "home/.config/quickshell/ii/modules/ii/bar/ThemeIndicator.qml" = "bar-themes"
+"home/.config/quickshell/ii/modules/ii/bar/ToolsIndicator.qml" = "bar-tools"
 "home/.config/quickshell/ii/modules/ii/bar/Workspaces.qml" = "bar-agent-usage"
+"home/.config/quickshell/ii/modules/ii/bar/tools/ColorTool.qml" = "bar-tools"
+"home/.config/quickshell/ii/modules/ii/bar/tools/ConvertTool.qml" = "bar-tools"
+"home/.config/quickshell/ii/modules/ii/bar/tools/DictionaryTool.qml" = "bar-tools"
+"home/.config/quickshell/ii/modules/ii/bar/tools/TimerTool.qml" = "bar-tools"
+"home/.config/quickshell/ii/modules/ii/bar/tools/TranslateTool.qml" = "bar-tools"
+"home/.config/quickshell/ii/modules/ii/bar/tools/WolframTool.qml" = "bar-tools"
 "home/.config/quickshell/ii/modules/ii/cheatsheet/Cheatsheet.qml" = "cheatsheet-extras"
 "home/.config/quickshell/ii/modules/ii/cheatsheet/CheatsheetAliases.qml" = "cheatsheet-extras"
 "home/.config/quickshell/ii/modules/ii/sessionScreen/SessionScreen.qml" = "session-restore"
@@ -338,6 +351,12 @@ sudo = true
 "home/.config/quickshell/ii/scripts/colors/theme-contrast.py" = "bar-themes"
 "home/.config/quickshell/ii/scripts/disk/disk-health.py" = "bar-resources"
 "home/.config/quickshell/ii/scripts/terminal-toys.py" = "terminal-toys"
+"home/.config/quickshell/ii/scripts/terminal_toys_games.py" = "terminal-toys"
+"home/.config/quickshell/ii/scripts/tools/colors.py" = "bar-tools"
+"home/.config/quickshell/ii/scripts/tools/convert.py" = "bar-tools"
+"home/.config/quickshell/ii/scripts/tools/dictionary.py" = "bar-tools"
+"home/.config/quickshell/ii/scripts/tools/translate.py" = "bar-tools"
+"home/.config/quickshell/ii/scripts/tools/wolfram.py" = "bar-tools"
 "home/.config/quickshell/ii/services/Ai.qml" = "ai-sidebar-extras"
 "home/.config/quickshell/ii/services/Ambiance.qml" = "bar-themes"
 "home/.config/quickshell/ii/services/Brightness.qml" = "base"
@@ -352,6 +371,7 @@ sudo = true
 "home/.config/quickshell/ii/services/ThemeAuto.qml" = "bar-themes"
 "home/.config/quickshell/ii/services/ThemeSounds.qml" = "bar-themes"
 "home/.config/quickshell/ii/services/TimerService.qml" = "sidebar-timer"
+"home/.config/quickshell/ii/services/UnitConverter.qml" = "bar-tools"
 "home/.config/quickshell/ii/services/Weather.qml" = "base"
 "home/.config/quickshell/ii/services/ai/AiModel.qml" = "ai-sidebar-extras"
 "home/.config/quickshell/ii/services/ai/ApiStrategy.qml" = "ai-sidebar-extras"

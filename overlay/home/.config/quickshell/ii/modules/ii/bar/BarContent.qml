@@ -391,6 +391,9 @@ Item { // Bar content region
                 // share:begin terminal-toys
                 TerminalToys {}
                 // share:end
+                // share:begin bar-tools
+                ToolsIndicator {}
+                // share:end
             }
 
             // share:begin bar-docker

@@ -20,6 +20,7 @@ from PIL import Image
 NAMES = ['Cat', 'Sprout', 'Robot', 'Toast']
 KEYS = ['cat', 'garden', 'robot', 'baker']
 ICONS = {'cat': 'pets', 'garden': 'local_florist', 'robot': 'smart_toy', 'baker': 'bakery_dining'}
+GAMES = Path(__file__).resolve().with_name('terminal_toys_games.py')
 PRIVATE = Path(os.environ.get('TERMINAL_TOYS_PRIVATE', Path.home() / '.local/share/terminal-toys/private_scenes.py'))
 STATES = ['idle', 'running', 'success', 'error', 'waiting']
 FPS = {'idle': 4, 'running': 10, 'success': 8, 'error': 8, 'waiting': 8}
@@ -563,9 +564,10 @@ def load_private(path=PRIVATE):
                 ICONS[key] = icon
                 DRAW[key] = draw
     except Exception as error:
-        print(f'terminal-toys: private scenes skipped: {error!r}', file=sys.stderr)
+        print(f'terminal-toys: scenes in {path} skipped: {error!r}', file=sys.stderr)
 
 
+load_private(GAMES)
 load_private()
 
 
