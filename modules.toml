@@ -122,7 +122,12 @@ desktop = true
 packages = { arch = ["python"], ubuntu = ["python3"] }
 
 [module.notifications-click]
-description = "A left click on a notification runs its default action; an identical notification (same app, title and text) within 3 s is dropped"
+description = "A left click on a notification runs its default action; an identical notification (same app, title and text) within 3 s is dropped; pictures sent as temporary files or in memory (Chrome) are kept, and a missing icon falls back to a symbol instead of a magenta square"
+default = true
+desktop = true
+
+[module.sidebar-timer]
+description = "Sidebar: the Pomodoro tab becomes a plain countdown timer; click the digits to type a time (10, 1:30, 45s), scroll or use -1m/+1m/+5m, even while it runs"
 default = true
 desktop = true
 
@@ -340,6 +345,10 @@ sudo = true
 "home/.config/quickshell/ii/services/LauncherSearch.qml" = "base"
 "home/.config/quickshell/ii/services/MaterialThemeLoader.qml" = "bar-themes"
 "home/.config/quickshell/ii/services/Notifications.qml" = "notifications-click"
+"home/.config/quickshell/ii/modules/common/widgets/NotificationAppIcon.qml" = "notifications-click"
+"home/.config/quickshell/ii/services/TimerService.qml" = "sidebar-timer"
+"home/.config/quickshell/ii/modules/ii/sidebarRight/pomodoro/PomodoroTimer.qml" = "sidebar-timer"
+"home/.config/quickshell/ii/modules/ii/sidebarRight/pomodoro/PomodoroWidget.qml" = "sidebar-timer"
 "home/.config/quickshell/ii/services/ResourceUsage.qml" = "bar-resources"
 "home/.config/quickshell/ii/services/ThemeAuto.qml" = "bar-themes"
 "home/.config/quickshell/ii/services/ThemeSounds.qml" = "bar-themes"

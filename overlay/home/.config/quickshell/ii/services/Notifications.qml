@@ -2,6 +2,7 @@ pragma Singleton
 pragma ComponentBehavior: Bound
 
 import qs.modules.common
+import qs.modules.common.functions
 import qs
 import QtQuick
 import Quickshell
@@ -171,6 +172,7 @@ Singleton {
                 "time": Date.now(),
             });
 			root.list = [...root.list, newNotifObject];
+            root.copyTempFiles(newNotifObject);
 
             // Popup
             if (!root.popupInhibited) {
@@ -189,6 +191,67 @@ Singleton {
         }
     }
 
+    // Senders' images die with them (Chrome deletes its /tmp files, image://qsimage handles vanish), so keep our own copies
+    readonly property string imageCacheDir: FileUtils.trimFileProtocol(`${Directories.cache}/notifications/images`)
+
+    function cachedImagePath(notif, key) {
+        return `${root.imageCacheDir}/${notif.notificationId}-${key}.png`;
+    }
+
+    function localPath(source) {
+        source = source ?? "";
+        return FileUtils.trimFileProtocol(source.startsWith("image://icon//") ? source.slice("image://icon/".length) : source);
+    }
+
+    function copyTempFiles(notif) {
+        for (const key of ["image", "appIcon"]) {
+            const src = root.localPath(notif[key]);
+            if (src.startsWith("/tmp/"))
+                fileCopyComponent.createObject(root, { "notif": notif, "key": key, "src": src, "dest": root.cachedImagePath(notif, key) });
+        }
+    }
+
+    function storeGrabbedImage(url, grabResult) {
+        const targets = root.list.filter(n => n.image === url);
+        if (targets.length === 0)
+            return;
+        const dest = root.cachedImagePath(targets[0], "image");
+        if (!grabResult.saveToFile(dest)) {
+            console.warn("[Notifications] Could not save image to " + dest);
+            return;
+        }
+        targets.forEach(n => n.image = dest);
+        notifFileView.setText(stringifyList(root.list));
+    }
+
+    function deleteCachedImages(notif) {
+        const paths = [notif.image, notif.appIcon].filter(p => p.startsWith(root.imageCacheDir + "/"));
+        if (paths.length > 0)
+            Quickshell.execDetached(["rm", "-f", "--", ...paths]);
+    }
+
+    component FileCopy: Process {
+        required property QtObject notif
+        required property string key
+        required property string src
+        required property string dest
+        running: true
+        command: ["cp", "--", src, dest]
+        onExited: exitCode => {
+            if (exitCode === 0 && notif) {
+                notif[key] = dest;
+                notifFileView.setText(stringifyList(root.list));
+            } else {
+                console.warn(`[Notifications] Could not copy ${src}`);
+            }
+            destroy();
+        }
+    }
+    Component {
+        id: fileCopyComponent
+        FileCopy {}
+    }
+
     function markAllRead() {
         root.unread = 0;
     }
@@ -198,6 +261,7 @@ Singleton {
         const index = root.list.findIndex((notif) => notif.notificationId === id);
         const notifServerIndex = notifServer.trackedNotifications.values.findIndex((notif) => notif.id + root.idOffset === id);
         if (index !== -1) {
+            root.deleteCachedImages(root.list[index]);
             root.list.splice(index, 1);
             notifFileView.setText(stringifyList(root.list));
             triggerListChange()
@@ -209,6 +273,7 @@ Singleton {
     }
 
     function discardAllNotifications() {
+        root.list.forEach(n => root.deleteCachedImages(n));
         root.list = []
         triggerListChange()
         notifFileView.setText(stringifyList(root.list));
@@ -274,6 +339,7 @@ Singleton {
     }
 
     Component.onCompleted: {
+        Quickshell.execDetached(["mkdir", "-p", root.imageCacheDir]);
         refresh()
     }
 

@@ -148,6 +148,12 @@ Singleton {
                     property bool isBreak: false
                     property int cycle: 0
                 }
+                property JsonObject countdown: JsonObject {
+                    property bool running: false
+                    property int end: 0
+                    property int remaining: 600
+                    property int duration: 600
+                }
                 property JsonObject stopwatch: JsonObject {
                     property bool running: false
                     property int start: 0

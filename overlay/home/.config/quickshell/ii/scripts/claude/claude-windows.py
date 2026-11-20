@@ -6,6 +6,7 @@ import socket
 import subprocess
 import sys
 import time
+from datetime import datetime
 from pathlib import Path
 
 RUNTIME = Path(os.environ.get("XDG_RUNTIME_DIR", f"/run/user/{os.getuid()}"))
@@ -105,12 +106,12 @@ _last_replies = {}
 
 
 def last_reply(session_id):
-    """Identifiant de la dernière réponse de Claude dans la conversation ; un rechargement ou un entretien du cache n'en ajoute pas."""
+    """Identifiant de la dernière réponse de Claude, et vrai si le fil principal a fini son tour (Claude Code reste « busy » tant que des tâches de fond tournent)."""
     path = _transcripts.get(session_id)
     if path is None or not path.exists():
         path = next(Path.home().glob(f".claude/projects/*/{session_id}.jsonl"), None)
         if path is None:
-            return None
+            return None, False
         _transcripts[session_id] = path
     st = path.stat()
     key = (st.st_mtime, st.st_size)
@@ -121,16 +122,21 @@ def last_reply(session_id):
         f.seek(max(0, st.st_size - 2_000_000))
         lines = f.read().splitlines()
     reply = ""
+    ended = None
     for raw in reversed(lines):
         try:
             entry = json.loads(raw)
         except ValueError:
             continue
-        if entry.get("type") == "assistant" and not entry.get("isSidechain"):
+        if entry.get("type") not in ("assistant", "user") or entry.get("isSidechain"):
+            continue
+        if ended is None:
+            ended = entry["type"] == "assistant" and entry["message"].get("stop_reason") == "end_turn"
+        if entry["type"] == "assistant":
             reply = entry.get("uuid") or ""
             break
-    _last_replies[path] = (key, reply)
-    return reply
+    _last_replies[path] = (key, (reply, bool(ended)))
+    return reply, bool(ended)
 
 
 def transcript_running(path):
@@ -159,21 +165,40 @@ def transcript_running(path):
     return last == "tool_use" or (last in ("user", "assistant") and time.time() - st.st_mtime < SUBAGENT_REPLY_MAX)
 
 
-def running_subagents(session_id):
-    """Sous-agents en cours : signalés par le hook (départ sans fin), sinon d'après leur journal."""
+_log_starts = {}
+
+
+def log_start(path):
+    """Heure du premier message du journal d'un sous-agent."""
+    if path not in _log_starts:
+        with path.open() as f:
+            first = json.loads(f.readline())
+        _log_starts[path] = datetime.fromisoformat(first["timestamp"].replace("Z", "+00:00")).timestamp()
+    return _log_starts[path]
+
+
+def running_subagents(session_id, pid):
+    """Sous-agents en cours lancés par ce processus claude : signalés par le hook (départ sans fin), sinon d'après leur journal."""
     now = time.time()
+    start = started_at(pid)
     try:
         marks = [f for f in (SUBAGENTS_DIR / session_id).iterdir() if f.stat().st_mtime >= now - SUBAGENT_MAX_AGE]
     except OSError:
         marks = []
     ended = {f.name.removesuffix(".done") for f in marks if f.name.endswith(".done")}
-    alive = {f.name for f in marks if not f.name.endswith(".done")} - ended
+    alive, others = set(), set()
+    for f in marks:
+        if f.name.endswith(".done") or f.name in ended:
+            continue
+        owner = f.read_text().strip()
+        mine = owner == str(pid) if owner else start is None or f.stat().st_mtime >= start - 1
+        (alive if mine else others).add(f.name)
     for f in Path.home().glob(f".claude/projects/*/{session_id}/subagents/agent-*.jsonl"):
         agent = f.stem.removeprefix("agent-")
-        if agent in alive or agent in ended:
+        if agent in alive or agent in others or agent in ended:
             continue
         try:
-            if now - f.stat().st_mtime < SUBAGENT_SILENT_MAX and transcript_running(f):
+            if now - f.stat().st_mtime < SUBAGENT_SILENT_MAX and (start is None or log_start(f) >= start - 1) and transcript_running(f):
                 alive.add(agent)
         except OSError:
             pass
@@ -199,16 +224,19 @@ def window_state(kitty_pid, win):
         return (hook[1], agent, 0, None) if hook else ("idle", agent, 0, None)
     subagents = 0
     reply = None
+    ended = False
     try:
         data = json.loads((CLAUDE_SESSIONS / f"{procs[0].get('pid')}.json").read_text())
         status = data.get("status")
         if status in SESSION_STATUS:
             session = (float(data.get("updatedAt") or 0) / 1000, SESSION_STATUS[status])
         if data.get("sessionId"):
-            subagents = running_subagents(data["sessionId"])
-            reply = last_reply(data["sessionId"])
+            subagents = running_subagents(data["sessionId"], procs[0].get("pid"))
+            reply, ended = last_reply(data["sessionId"])
     except (OSError, ValueError, AttributeError, TypeError):
         pass
+    if session and session[1] == "running" and subagents and ended:
+        session = (session[0], "done")
     if hook and session:
         return max(hook, session)[1], agent, subagents, reply
     if hook or session:
