@@ -17,9 +17,8 @@ from pathlib import Path
 
 from PIL import Image
 
-NAMES = ['Terminal cat', 'Growing garden', 'Sleepy robot', 'Little baker',
-         'Pocket wizard', 'Little planet']
-KEYS = ['cat', 'garden', 'robot', 'baker', 'wizard', 'planet']
+NAMES = ['Terminal cat', 'Growing garden', 'Sleepy robot', 'Little baker']
+KEYS = ['cat', 'garden', 'robot', 'baker']
 STATES = ['idle', 'running', 'success', 'error']
 FPS = {'idle': 4, 'running': 10, 'success': 8, 'error': 8}
 FRAMES = 8
@@ -501,132 +500,7 @@ def draw_baker(s, state, i, accent):
         bang(s, 3, 14+(i % 2))
 
 
-def draw_wizard(s, state, i, accent):
-    robe, skin, beard = shades('#7a63d9'), shades('#ffd2ad'), ((255, 255, 255), (238, 236, 246), (196, 192, 214))
-    wood, gem = shades('#9b6a43'), shades(apart(accent, 255, '#5fe0d0'))
-    bob = (1 if i >= 4 else 0) if state == 'idle' else 0
-    if state == 'success':
-        bob = [0, -2, -3, -2, 0, -1, 0, 0][i]
-    shake = [0, -1, 1, -1, 1, 0, 0, 0][i] if state == 'error' else 0
-    cx = 14+shake
-    s.shadow = (15, 30.6, 9)
-    staff_x = cx+9
-    lift = -1 if state == 'running' and i % 4 < 2 else -2 if state == 'success' else 0
-    s.line(staff_x, 12+lift+bob, staff_x, 30, wood[2])
-    s.line(staff_x+1, 13+lift+bob, staff_x+1, 30, wood[1])
-    s.fill(lambda x, y: 18+bob <= y <= 30.5 and abs(x-cx) <= 4+(y-18-bob)*.42, robe)
-    for k in range(3):
-        s.dot(cx-3+k*3, 27+(k % 2), gem[0])
-    s.fill(ellipse(staff_x+.5, 22+bob+lift, 1.7, 1.5), skin)
-    s.fill(ellipse(cx, 15+bob, 5.2, 4.6), skin)
-    hy = 11+bob
-    droop = (1.5 if state == 'idle' else -1.5 if state == 'error' else 0)+math.sin(i/FRAMES*2*math.pi)*.6
-    s.fill(lambda x, y: hy-1 <= y <= hy+1.6 and abs(x-cx) <= 9-(y < hy)*.8, robe)
-    s.fill(triangle((cx-5.6, hy-.5), (cx+5.6, hy-.5), (cx+2+droop*1.4, hy-10)), robe)
-    s.paint(lambda x, y: hy-2.5 <= y < hy-1 and abs(x-cx) < 6, gem[1])
-    star = {'y': (255, 214, 92), 'h': WHITE}
-    s.stamp(['.y.', 'yhy', '.y.'], cx-3, hy-6, star)
-    s.fill(lambda x, y: ellipse(cx, 19.6+bob, 5, 4.4)(x, y) and y > 16.5+bob, beard)
-    s.fill(ellipse(cx, 23.4+bob, 3, 2.4), beard)
-    s.fill(ellipse(cx, 17.5+bob, 1.3, 1), shades('#ffb08c'), rim=False, light=None)
-    k = {'k': INK, 'w': WHITE, 'p': (255, 138, 160)}
-    ey = 14+bob
-    for ex in (cx-3, cx+2):
-        if state == 'idle':
-            s.stamp(['kk'], ex, ey+1, k)
-        elif state == 'running':
-            s.stamp(['kw', 'kk'], ex, ey, k)
-        elif state == 'success':
-            s.stamp(['.k.', 'k.k'][::1], ex-(ex < cx), ey, k)
-        else:
-            s.stamp(['k.k', '.k.', 'k.k'], ex-(ex < cx), ey-1, k)
-    s.stamp(['p'], cx-5, ey+2, k)
-    s.stamp(['p'], cx+5, ey+2, k)
-    gy = 10+lift+bob
-    glow = state in ('running', 'success') and i % 2
-    s.fill(ellipse(staff_x+.5, gy, 2.1+glow*.4, 2.1+glow*.4), gem)
-    s.dot(staff_x, gy-1, WHITE)
-    if state == 'idle':
-        zzz(s, i, 21, 4)
-    elif state == 'running':
-        for k2 in range(3):
-            ang = i/FRAMES*2*math.pi+k2*2.1
-            px, py = staff_x+.5+math.cos(ang)*4.6, gy+math.sin(ang)*3.4
-            s.stamp(STAR_S, px-1, py-1, FX, 'fx')
-    elif state == 'success':
-        sparkles(s, i, [(staff_x+5, gy-3), (staff_x+6, gy+5), (3, 6), (4, 20), (staff_x-7, gy-2)])
-    else:
-        puff(s, i, staff_x+.5, gy-2, (226, 220, 236))
-        s.dot(cx-2, ey+3, (120, 110, 130))
-        s.dot(cx+3, ey-1+3, (120, 110, 130))
-
-
-def draw_planet(s, state, i, accent):
-    sea, land = shades('#4fb3e8'), shades('#7bd46a')
-    hop = [0, -1, -2, -1, 0, -1, 0, 0][i] if state == 'success' else 0
-    hit = state == 'error'
-    shake = [0, 0, 0, -1, 1, -1, 1, 0][i] if hit else 0
-    cx, cy, r = 16+shake, 16.5+hop, 9.4
-    s.shadow = (16, 30.6, 7)
-    spin = {'idle': .1, 'running': .4, 'success': .2, 'error': .15}[state]
-    rot = i*spin
-    ring = shades(apart(accent, 200, '#ffb86b'))
-    def ring_test(x, y):
-        dx, dy = (x-cx)/14.2, (y-cy-2.5)/3.4
-        d = dx*dx+dy*dy
-        return .5 <= d <= 1
-    s.fill(lambda x, y: ring_test(x, y) and y < cy+2.5, ring, light=None)
-    s.fill(ellipse(cx, cy, r, r), sea, light=(1.2, 1.6))
-    blobs = [(0, .62, .65, .26), (2.2, -.6, .6, .26), (3.9, .55, .5, .3), (5.3, -.68, .6, .24)]
-    for y in range(H):
-        for x in range(W):
-            dx, dy = (x+.5-cx)/r, (y+.5-cy)/r
-            if dx*dx+dy*dy > .9:
-                continue
-            lat = math.asin(max(-1, min(1, dy)))
-            c = math.cos(lat)
-            if c < .05 or abs(dx/c) > 1:
-                continue
-            lon = math.asin(dx/c)+rot
-            for bl, bt, wl, wt in blobs:
-                dl = (lon-bl+math.pi) % (2*math.pi)-math.pi
-                if (dl/wl)**2+((lat-bt)/wt)**2 <= 1:
-                    edge = dx*dx+dy*dy > .55 and (dx+dy) > .3
-                    s.dot(x, y, land[2] if edge else land[1] if dx+dy > -.6 else land[0])
-                    break
-    def front(x, y):
-        return ring_test(x, y) and y >= cy+2.5
-    s.fill(front, ring, light=None)
-    mood = {'idle': 'sleep', 'running': 'open', 'success': 'happy', 'error': 'dizzy'}[state]
-    face(s, cx-4, cy-3, mood, gap=8)
-    if state == 'idle':
-        zzz(s, i, 21, 3)
-    elif state == 'running':
-        ang = i/FRAMES*2*math.pi
-        mx, my = cx+math.cos(ang)*13, cy-1+math.sin(ang)*5
-        moon = shades('#d8d4e6')
-        layer = 'fx' if math.sin(ang) > -.2 else 'body'
-        if layer == 'body':
-            s.fill(ellipse(mx, my, 2, 2), moon)
-        else:
-            s.fill(ellipse(mx, my, 2, 2), moon, layer='fx')
-    elif state == 'success':
-        sparkles(s, i, [(3, 4), (28, 5), (4, 24), (28, 24), (16, 3)])
-    else:
-        if i < 3:
-            mx, my = 28-i*3.5, 1+i*3.5
-            rock = shades('#b07a5a')
-            s.line(mx+1, my-1, mx+3, my-3, (255, 200, 90), 'fx')
-            s.fill(ellipse(mx, my, 1.6, 1.6), rock, layer='fx')
-        else:
-            puff(s, i-3, cx+5, cy-7, (238, 232, 242))
-            if i % 2:
-                s.stamp(STAR_S, 2, 6, FX, 'fx')
-                s.stamp(STAR_S, 27, 9, FX, 'fx')
-
-
-DRAW = {'cat': draw_cat, 'garden': draw_garden, 'robot': draw_robot, 'baker': draw_baker,
-        'wizard': draw_wizard, 'planet': draw_planet}
+DRAW = {'cat': draw_cat, 'garden': draw_garden, 'robot': draw_robot, 'baker': draw_baker}
 
 
 def render(scene, state, i, accent=FALLBACK_ACCENT):

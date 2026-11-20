@@ -38,9 +38,7 @@ MouseArea {
         {key: "cat", name: "Cat", icon: "pets"},
         {key: "garden", name: "Sprout", icon: "local_florist"},
         {key: "robot", name: "Robot", icon: "smart_toy"},
-        {key: "baker", name: "Toast", icon: "bakery_dining"},
-        {key: "wizard", name: "Wizard", icon: "auto_fix_high"},
-        {key: "planet", name: "Planet", icon: "public"}
+        {key: "baker", name: "Toast", icon: "bakery_dining"}
     ]
     onClicked: menuOpen = !menuOpen
     Rectangle {
@@ -167,7 +165,7 @@ MouseArea {
                     }
                     GridLayout {
                         Layout.fillWidth: true
-                        columns: 6
+                        columns: 4
                         rowSpacing: 6
                         columnSpacing: 6
                         Repeater {
