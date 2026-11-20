@@ -17,10 +17,12 @@ from pathlib import Path
 
 from PIL import Image
 
-NAMES = ['Terminal cat', 'Growing garden', 'Sleepy robot', 'Little baker']
+NAMES = ['Cat', 'Sprout', 'Robot', 'Toast']
 KEYS = ['cat', 'garden', 'robot', 'baker']
-STATES = ['idle', 'running', 'success', 'error']
-FPS = {'idle': 4, 'running': 10, 'success': 8, 'error': 8}
+ICONS = {'cat': 'pets', 'garden': 'local_florist', 'robot': 'smart_toy', 'baker': 'bakery_dining'}
+PRIVATE = Path(os.environ.get('TERMINAL_TOYS_PRIVATE', Path.home() / '.local/share/terminal-toys/private_scenes.py'))
+STATES = ['idle', 'running', 'success', 'error', 'waiting']
+FPS = {'idle': 4, 'running': 10, 'success': 8, 'error': 8, 'waiting': 8}
 FRAMES = 8
 W = H = 32
 THEME = Path.home() / '.local/state/quickshell/user/generated/colors.json'
@@ -84,8 +86,12 @@ def triangle(a, b, c):
 
 class Sprite:
     def __init__(self):
-        self.layers = {'body': {}, 'fx': {}}
+        self.layers = {'light': {}, 'body': {}, 'fx': {}}
         self.shadow = None
+        self.bands = []
+
+    def band(self, y0, y1, color, alpha=.6):
+        self.bands.append((y0, y1, rgb(color), alpha))
 
     def dot(self, x, y, color, layer='body'):
         x, y = round(x), round(y)
@@ -146,6 +152,9 @@ class Sprite:
                 for x in range(W):
                     if ((x+.5-cx)/rx)**2+((y+.5-cy)/1.4)**2 <= 1:
                         pixels[x, y] = (20, 14, 30, 70)
+        for (x, y), color in self.layers['light'].items():
+            if color is not None:
+                pixels[x, y] = color+(255,)
         for name in ('body', 'fx'):
             layer = {k: v for k, v in self.layers[name].items() if v is not None}
             edge = set()
@@ -157,7 +166,23 @@ class Sprite:
                 pixels[x, y] = INK+(255,)
             for (x, y), color in layer.items():
                 pixels[x, y] = color+(255,)
+        for y0, y1, color, alpha in self.bands:
+            for y in range(max(0, round(y0)), min(H, round(y1))):
+                edge = min(y-y0+1, y1-y, 2)/2
+                for x in range(W):
+                    pixels[x, y] = blend(pixels[x, y], color, round(255*alpha*edge))
         return out
+
+
+def blend(under, color, alpha):
+    if not alpha:
+        return under
+    a = alpha/255
+    total = a+under[3]/255*(1-a)
+    if total <= 0:
+        return (0, 0, 0, 0)
+    mixed = tuple(round((color[k]*a+under[k]*under[3]/255*(1-a))/total) for k in range(3))
+    return mixed+(round(total*255),)
 
 
 Z3 = ['zzzz', '..z.', '.z..', 'zzzz']
@@ -208,6 +233,18 @@ def puff(s, i, x, y, color=(206, 200, 214)):
 
 def bang(s, x, y):
     s.stamp(BANG, x, y, FX, 'fx')
+
+
+BUBBLE = ['.wwwww.', 'wwwrwww', 'wwwrwww', 'wwwrwww', 'wwwwwww', 'wwwrwww', '.wwwww.', '.ww....', 'w......']
+HOP = [0, -1, -2, -1, 0, 0, 0, 0]
+
+
+def attention(s, i, x=23, y=1):
+    s.stamp(BUBBLE, x, y+(1 if i % 4 >= 2 else 0), {'w': WHITE, 'r': (240, 84, 84)}, 'fx')
+
+
+def shift(s, dx, dy, layer='body'):
+    s.layers[layer] = {(x+dx, y+dy): c for (x, y), c in s.layers[layer].items() if 0 <= x+dx < W and 0 <= y+dy < H}
 
 
 def drop(s, x, y):
@@ -264,7 +301,7 @@ def draw_cat(s, state, i, accent):
     elif state == 'success':
         bob = [0, -2, -3, -2, 0, -1, 0, 0][i]
         tail = wave*1.2
-    else:
+    elif state == 'error':
         shake = [0, -1, 1, -1, 1, 0, 0, 0][i]
     cx = 15+shake
     s.shadow = (16, 30.6, 10)
@@ -287,7 +324,7 @@ def draw_cat(s, state, i, accent):
     for side, lift in ((-1, max(paw, 0)), (1, max(-paw, 0))):
         s.fill(ellipse(cx+side*3.6, 29.7-lift*1.5, 2.3, 1.5), cream)
     s.fill(ellipse(cx, hy+8.6, 1.2, 1.2), shades('#ffd65c'), rim=False)
-    mood = {'idle': 'sleep', 'running': 'open', 'success': 'happy', 'error': 'shock'}[state]
+    mood = {'idle': 'sleep', 'running': 'open', 'success': 'happy', 'error': 'shock'}.get(state, 'open')
     look = -1 if state == 'running' and i % 4 >= 2 else 0
     face(s, cx-4, hy+1, mood, gap=8, look=look)
     if state == 'idle':
@@ -301,7 +338,7 @@ def draw_cat(s, state, i, accent):
         s.dot(bx+(i % 2), by, ball[2], 'fx')
     elif state == 'success':
         hearts(s, i, [(24, 8), (1, 11)])
-    else:
+    elif state == 'error':
         drop(s, cx+9, hy-5)
         bang(s, 3, 5+(i % 2))
 
@@ -349,6 +386,8 @@ def draw_garden(s, state, i, accent):
             stem, lean, droop = 5, sway*.4, .45
         elif state == 'running':
             stem, lean, droop = 7, sway*.8, -.5 if i % 2 else .1
+        elif state == 'waiting':
+            stem, lean, droop = 6, 0, -.6
         else:
             stem, lean, droop = 9, sway*.4, -.25
         tip = (cx+lean, top-stem)
@@ -367,7 +406,7 @@ def draw_garden(s, state, i, accent):
     s.fill(lambda x, y: top+3 <= y <= 30.5 and abs(x-cx) <= 7.2-(y-top-3)*.18, clay, edge=clay[2], edge_from=top+3)
     band = shades(apart(accent, 16, '#6fb6e8'))
     s.paint(lambda x, y: top+9 <= y < top+10 and abs(x-cx) < 8, band[1])
-    mood = {'idle': 'sleep', 'running': 'open', 'success': 'happy', 'error': 'shock'}[state]
+    mood = {'idle': 'sleep', 'running': 'open', 'success': 'happy', 'error': 'shock'}.get(state, 'open')
     face(s, cx-4, top+5, mood, gap=8, look=0)
     if state == 'idle':
         zzz(s, i, 21, 7)
@@ -426,6 +465,10 @@ def draw_robot(s, state, i, accent):
         for e in (ex, ex+6):
             s.stamp(['.g.', 'g.g'], e-1, ey, g)
         s.stamp(['g..g', '.gg.'], cx-2, ey+3, g)
+    elif state == 'waiting':
+        for e in (ex, ex+6):
+            s.stamp(['gg', 'gg', 'gg'], e, ey-1, g)
+        s.stamp(['gg'], cx-1, ey+3, g)
     else:
         for e in (ex, ex+6):
             s.stamp(['g.g', '.g.', 'g.g'], e-1, ey-1, g)
@@ -440,7 +483,7 @@ def draw_robot(s, state, i, accent):
             s.stamp(['y.', '.y'], cx+10, hy-3, {'y': (255, 214, 92)}, 'fx')
     elif state == 'success':
         sparkles(s, i, [(4, 6), (27, 4), (28, 18), (3, 18)])
-    else:
+    elif state == 'error':
         puff(s, i, cx+10, hy+2, (214, 210, 224))
         if i % 2:
             s.stamp(['y.y', '.y.', 'y.y'], cx-1, hy-8, {'y': (255, 214, 92)}, 'fx')
@@ -482,7 +525,7 @@ def draw_baker(s, state, i, accent):
     s.fill(rrect(cx-4.2+tilt, hy-1, cx+4.2+tilt, hy+2.6, .8), hat, light=(1, 0))
     for k, (dx, dy, r) in enumerate(((-3.4, -2.6, 2.8), (3.4, -2.6, 2.8), (0, -3.8, 3.2))):
         s.fill(ellipse(cx+dx+tilt*1.6, hy+dy, r, r*.95), hat, edge=hat[2], edge_from=hy-8)
-    mood = {'idle': 'sleep', 'running': 'open', 'success': 'happy', 'error': 'shock'}[state]
+    mood = {'idle': 'sleep', 'running': 'open', 'success': 'happy', 'error': 'shock'}.get(state, 'open')
     face(s, cx-4, 21+hop, mood, gap=8)
     if state == 'idle':
         zzz(s, i, 21, 6)
@@ -494,18 +537,44 @@ def draw_baker(s, state, i, accent):
     elif state == 'success':
         sparkles(s, i, [(4, 12), (28, 9), (27, 24)])
         hearts(s, i, [(0, 22)])
-    else:
+    elif state == 'error':
         puff(s, i, cx+8, hy-1, (110, 104, 118))
         puff(s, (i+3) % FRAMES, cx-8, hy+2, (130, 124, 138))
         bang(s, 3, 14+(i % 2))
 
 
 DRAW = {'cat': draw_cat, 'garden': draw_garden, 'robot': draw_robot, 'baker': draw_baker}
+BUILTIN = set(DRAW)
+
+
+def load_private(path=PRIVATE):
+    if not Path(path).is_file():
+        return
+    import importlib.util
+    import types
+    try:
+        spec = importlib.util.spec_from_file_location('terminal_toys_private', path)
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        for key, name, icon, draw in mod.scenes(types.SimpleNamespace(**globals())):
+            if key not in DRAW:
+                KEYS.append(key)
+                NAMES.append(name)
+                ICONS[key] = icon
+                DRAW[key] = draw
+    except Exception as error:
+        print(f'terminal-toys: private scenes skipped: {error!r}', file=sys.stderr)
+
+
+load_private()
 
 
 def render(scene, state, i, accent=FALLBACK_ACCENT):
     s = Sprite()
     DRAW[scene](s, state, i % FRAMES, accent)
+    if state == 'waiting' and scene in BUILTIN:
+        shift(s, 0, HOP[i % FRAMES])
+        attention(s, i % FRAMES)
     return s.image()
 
 
@@ -564,10 +633,14 @@ def halfblocks(image):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('scene', choices=KEYS, nargs='?', default='cat')
+    parser.add_argument('--list', action='store_true')
     parser.add_argument('--stream', action='store_true')
     parser.add_argument('--state', choices=STATES, default='running')
     parser.add_argument('--scale', type=int, default=8)
     args = parser.parse_args()
+    if args.list:
+        print(json.dumps([{'key': k, 'name': n, 'icon': ICONS.get(k, 'animation')} for k, n in zip(KEYS, NAMES)]))
+        return
     input_stream = sys.stdin.buffer.raw
     scene, state = args.scene, args.state
     accent = theme_accent()
@@ -619,19 +692,21 @@ def main():
                         break
                     if key in '1234567890'[:len(KEYS)]:
                         scene, elapsed = KEYS['1234567890'.index(key)], 0
+                    elif key in 'np':
+                        scene, elapsed = KEYS[(KEYS.index(scene)+(1 if key == 'n' else -1)) % len(KEYS)], 0
                     elif key == ' ':
                         paused = not paused
                     elif key == 'r':
                         elapsed = 0
-                    elif key in 'iswe':
-                        state = dict(i='idle', s='success', w='running', e='error')[key]
+                    elif key in 'iswea':
+                        state = dict(i='idle', s='success', w='running', e='error', a='waiting')[key]
                         elapsed = 0
                     sys.stdout.write('\x1b[2J')
                     shown = None
                     index = frame_index(elapsed, state)
                 title = f'  {NAMES[KEYS.index(scene)]}  /  {state}  /  {"paused" if paused else "playing"}'
-                help_text = ['  1-6 scene   Space pause   R replay   Q quit',
-                             '  I idle   W working   S success   E error']
+                help_text = ['  1-0 or N/P scene   Space pause   R replay   Q quit',
+                             '  I idle   W working   S success   E error   A attention']
                 key = (scene, state, index)
                 if key != shown:
                     out = ['\x1b[H\x1b[0m\x1b[1m'+title+'\x1b[0m\x1b[K\r\n\r\n']

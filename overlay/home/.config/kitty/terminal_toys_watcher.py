@@ -1,14 +1,21 @@
 import importlib.util
 import json
 import os
+import shutil
+import subprocess
 import time
 from pathlib import Path
 
 SETTINGS = Path.home() / '.local/state/quickshell/user/terminal-toys.json'
 SCRIPT = Path(os.environ.get('TERMINAL_TOYS_SCRIPT', Path.home() / '.config/quickshell/ii/scripts/terminal-toys.py'))
-DEFAULTS = {'scene': 'cat', 'startup': True, 'ambient': True, 'commands': True, 'size': 6}
+AGENT_STATE = Path(os.environ.get('XDG_RUNTIME_DIR', f'/run/user/{os.getuid()}')) / 'claude-state'
+CLAUDE_SESSIONS = Path.home() / '.claude/sessions'
+AGENTS = {'claude': 'claude', 'pi': 'pi', 'codex': 'codex', 'codex.js': 'codex'}
+SESSION_STATUS = {'idle': 'done', 'shell': 'done', 'busy': 'running', 'waiting': 'waiting'}
+DEFAULTS = {'scene': 'cat', 'startup': True, 'ambient': True, 'commands': True, 'sounds': True, 'size': 6}
 PAD = (0, 10, 14, 0)
-GREETING, AFTERGLOW, CHECK = 2, 2, 1
+GREETING, AFTERGLOW, CHECK, LONG = 2, 2, 1, 3
+SOUNDS = {'success': 'notification', 'error': 'error', 'waiting': 'notification'}
 spec = importlib.util.spec_from_file_location('terminal_toys', SCRIPT)
 toys = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(toys)
@@ -17,6 +24,8 @@ preferences = dict(DEFAULTS)
 accent = toys.FALLBACK_ACCENT
 stamps = {}
 checked = 0
+players = []
+QS = shutil.which('qs')
 
 
 def changed(path):
@@ -57,7 +66,7 @@ def scale():
 def picture(scene, state, index, size=6, color=None):
     color = color or accent
     data = toys.frame_png(scene, state, index, size, color, PAD)
-    return f'/terminal-toys/v2/{scene}/{state}/{index}/{size}/{color.lstrip("#")}', data
+    return f'/terminal-toys/v3/{scene}/{state}/{index}/{size}/{color.lstrip("#")}', data
 
 
 def warm(scene=None, size=None, color=None):
@@ -67,7 +76,92 @@ def warm(scene=None, size=None, color=None):
                 picture(key, state, index, size or scale(), color)
 
 
+def play(outcome):
+    players[:] = [p for p in players if p.poll() is None]
+    if not QS or not preferences.get('sounds', True) or len(players) > 4:
+        return
+    try:
+        players.append(subprocess.Popen([QS, '-c', 'ii', 'ipc', 'call', 'themeSounds', 'play', SOUNDS[outcome], '0'],
+                                        stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                                        stderr=subprocess.DEVNULL, start_new_session=True))
+    except OSError:
+        pass
+
+
+def agent_of(cmdline):
+    for arg in (cmdline or [])[:2]:
+        name = AGENTS.get(os.path.basename(arg))
+        if name:
+            return name
+        if 'pi-coding-agent' in arg:
+            return 'pi'
+        if '@anthropic-ai/claude-code' in arg:
+            return 'claude'
+        if '@openai/codex' in arg:
+            return 'codex'
+    return None
+
+
+def agent_state(window):
+    try:
+        procs = [p for p in window.child.foreground_processes if agent_of(p.get('cmdline'))]
+    except Exception:
+        return None
+    if not procs:
+        return None
+    pid = procs[0].get('pid')
+    try:
+        start = os.stat(f'/proc/{pid}').st_ctime
+    except OSError:
+        start = None
+    found = []
+    path = AGENT_STATE / f'{os.getpid()}-{window.id}'
+    try:
+        mtime = path.stat().st_mtime
+        state = path.read_text().strip()
+        if state in ('running', 'waiting', 'done') and (start is None or mtime >= start-1):
+            found.append((mtime, state))
+    except OSError:
+        pass
+    if agent_of(procs[0].get('cmdline')) == 'claude':
+        try:
+            data = json.loads((CLAUDE_SESSIONS / f'{pid}.json').read_text())
+            if data.get('status') in SESSION_STATUS:
+                found.append((float(data.get('updatedAt') or 0)/1000, SESSION_STATUS[data['status']]))
+        except (OSError, ValueError, AttributeError, TypeError):
+            pass
+    return max(found)[1] if found else 'done'
+
+
+def follow_agent(window, entry, now):
+    if now-entry['agent_checked'] < CHECK:
+        return
+    entry['agent_checked'] = now
+    state = agent_state(window)
+    previous = entry['agent']
+    entry['agent'] = state
+    if state == previous or state is None:
+        return
+    if state == 'running':
+        entry['turn'] = now
+    elif state == 'done' and previous == 'running':
+        entry['agent_done'] = now
+        if now-entry['turn'] > LONG:
+            play('success')
+    elif state == 'waiting' and previous is not None:
+        play('waiting')
+    if state != 'done':
+        entry['agent_since'] = now
+
+
 def wanted_state(entry, now):
+    if preferences['commands'] and entry['agent']:
+        agent = entry['agent']
+        if agent in ('running', 'waiting'):
+            return agent, now-entry['agent_since']
+        if now-entry['agent_done'] < AFTERGLOW:
+            return 'success', now-entry['agent_done']
+        return ('idle', now-entry['born']) if preferences['ambient'] else (None, 0)
     if preferences['commands'] and (entry['state'] == 'running' or now-entry['changed'] < AFTERGLOW):
         return entry['state'], now-entry['changed']
     if preferences['startup'] and now-entry['born'] < GREETING:
@@ -85,6 +179,8 @@ def tick(boss):
         if window is None:
             del entries[wid]
             continue
+        if entry['state'] == 'running' or entry['agent']:
+            follow_agent(window, entry, now)
         state, elapsed = wanted_state(entry, now)
         if state is None:
             if entry['logo']:
@@ -120,15 +216,26 @@ def on_load(boss, data):
 def on_resize(boss, window, data):
     if window.id in entries or not is_shell(window):
         return
-    entries[window.id] = dict(born=time.monotonic(), changed=float('-inf'), state='idle', logo=None)
+    now = time.monotonic()
+    entries[window.id] = dict(born=now, changed=float('-inf'), started=now, state='idle', logo=None,
+                              agent=None, agent_checked=float('-inf'), agent_since=now,
+                              agent_done=float('-inf'), turn=now)
 
 
 def on_cmd_startstop(boss, window, data):
     if window.id not in entries:
         return
     entry = entries[window.id]
-    entry['state'] = 'running' if data['is_start'] else 'success' if data['exit_status'] == 0 else 'error'
-    entry['changed'] = time.monotonic()
+    now = time.monotonic()
+    if data['is_start']:
+        entry['state'] = 'running'
+        entry['started'] = now
+    else:
+        entry['state'] = 'success' if data['exit_status'] == 0 else 'error'
+        entry['agent'] = None
+        if now-entry['started'] > LONG:
+            play(entry['state'])
+    entry['changed'] = now
 
 
 def on_close(boss, window, data):

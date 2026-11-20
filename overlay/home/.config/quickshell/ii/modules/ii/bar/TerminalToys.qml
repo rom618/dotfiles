@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Layouts
 import Quickshell
 import Quickshell.Io
+import Quickshell.Hyprland
 import Quickshell.Wayland
 import qs.modules.common
 import qs.modules.common.widgets
@@ -18,7 +19,7 @@ MouseArea {
     property string demoState: "running"
     property bool paused: false
     property bool lightBackdrop: false
-    property var preferences: ({scene: "cat", startup: true, ambient: true, commands: true, size: 6})
+    property var preferences: ({scene: "cat", startup: true, ambient: true, commands: true, sounds: true, size: 6})
     function savePreferences(changes) {
         root.preferences = Object.assign({}, root.preferences, changes);
         preferencesFile.setText(JSON.stringify(root.preferences) + "\n");
@@ -29,17 +30,33 @@ MouseArea {
         watchChanges: true
         onFileChanged: reload()
         onLoaded: {
-            root.preferences = Object.assign({size: 6}, JSON.parse(text()));
+            root.preferences = Object.assign({size: 6, sounds: true}, JSON.parse(text()));
             root.selected = Math.max(0, root.scenes.findIndex(s => s.key === root.preferences.scene));
         }
     }
     readonly property string script: Quickshell.shellPath("scripts/terminal-toys.py")
-    readonly property var scenes: [
+    property var scenes: [
         {key: "cat", name: "Cat", icon: "pets"},
         {key: "garden", name: "Sprout", icon: "local_florist"},
         {key: "robot", name: "Robot", icon: "smart_toy"},
         {key: "baker", name: "Toast", icon: "bakery_dining"}
     ]
+    Process {
+        id: sceneList
+        command: ["python3", root.script, "--list"]
+        running: true
+        stdout: StdioCollector {
+            onStreamFinished: {
+                try {
+                    const list = JSON.parse(text);
+                    if (list.length) {
+                        root.scenes = list;
+                        root.selected = Math.max(0, list.findIndex(s => s.key === root.preferences.scene));
+                    }
+                } catch (e) {}
+            }
+        }
+    }
     onClicked: menuOpen = !menuOpen
     Rectangle {
         anchors.centerIn: parent
@@ -62,7 +79,7 @@ MouseArea {
             screen: root.QsWindow.window.screen
             color: "transparent"
             implicitWidth: 460
-            implicitHeight: 600
+            implicitHeight: 660
             anchors.top: !Config.options.bar.bottom || Config.options.bar.vertical
             anchors.bottom: Config.options.bar.bottom && !Config.options.bar.vertical
             anchors.left: true
@@ -75,6 +92,12 @@ MouseArea {
             WlrLayershell.keyboardFocus: WlrKeyboardFocus.OnDemand
             property string preview: ""
             property string failure: ""
+
+            HyprlandFocusGrab {
+                active: true
+                windows: [popup, root.QsWindow.window]
+                onCleared: root.menuOpen = false
+            }
 
             function update(restart) {
                 renderer.write(JSON.stringify({scene: root.scenes[root.selected].key, state: root.demoState, paused: root.paused, restart: restart}) + "\n");
@@ -165,7 +188,7 @@ MouseArea {
                     }
                     GridLayout {
                         Layout.fillWidth: true
-                        columns: 4
+                        columns: 5
                         rowSpacing: 6
                         columnSpacing: 6
                         Repeater {
@@ -208,7 +231,7 @@ MouseArea {
                         Layout.fillWidth: true
                         spacing: 6
                         Repeater {
-                            model: [{key: "idle", name: "Idle", icon: "bedtime"}, {key: "running", name: "Busy", icon: "bolt"}, {key: "success", name: "Done", icon: "favorite"}, {key: "error", name: "Oops", icon: "error"}]
+                            model: [{key: "idle", name: "Idle", icon: "bedtime"}, {key: "running", name: "Busy", icon: "bolt"}, {key: "waiting", name: "Ask", icon: "priority_high"}, {key: "success", name: "Done", icon: "favorite"}, {key: "error", name: "Oops", icon: "error"}]
                             delegate: RippleButton {
                                 id: stateButton
                                 required property var modelData
@@ -280,10 +303,10 @@ MouseArea {
                     }
                     GridLayout {
                         Layout.fillWidth: true
-                        columns: 3
+                        columns: 2
                         columnSpacing: 4
                         Repeater {
-                            model: [{key: "startup", name: "Say hello"}, {key: "ambient", name: "Always there"}, {key: "commands", name: "React to commands"}]
+                            model: [{key: "startup", name: "Say hello"}, {key: "ambient", name: "Always there"}, {key: "commands", name: "Commands and agents"}, {key: "sounds", name: "Theme sounds"}]
                             delegate: RippleButtonWithIcon {
                                 required property var modelData
                                 Layout.fillWidth: true
