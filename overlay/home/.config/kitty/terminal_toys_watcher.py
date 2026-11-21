@@ -15,7 +15,7 @@ SESSION_STATUS = {'idle': 'done', 'shell': 'done', 'busy': 'running', 'waiting':
 DEFAULTS = {'scene': 'cat', 'startup': True, 'ambient': True, 'commands': True, 'sounds': True, 'size': 6}
 PAD = (0, 10, 14, 0)
 GREETING, AFTERGLOW, CHECK, LONG = 2, 2, 1, 3
-SOUNDS = {'success': 'notification', 'error': 'error', 'waiting': 'notification'}
+SOUNDS = {'success': 'notification', 'error': 'error', 'waiting': 'notification', 'agentDone': 'agentDone'}
 spec = importlib.util.spec_from_file_location('terminal_toys', SCRIPT)
 toys = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(toys)
@@ -147,7 +147,7 @@ def follow_agent(window, entry, now):
     elif state == 'done' and previous == 'running':
         entry['agent_done'] = now
         if now-entry['turn'] > LONG:
-            play('success')
+            play('agentDone')
     elif state == 'waiting' and previous is not None:
         play('waiting')
     if state != 'done':

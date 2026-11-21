@@ -40,6 +40,8 @@ Singleton {
     }
 
     function play(event, variant) {
+        if (event === "agentDone" && !root.effects[event])
+            event = "notification";
         if (!root.enabled || !root.effects[event])
             return;
         const now = Date.now();

@@ -15,7 +15,7 @@ OUT = DATA / "sounds"
 PRIVATE = DATA / "private"
 SKIP = Path(os.environ.get("XDG_STATE_HOME") or Path.home() / ".local" / "state") / "quickshell" / "user" / "generated" / "theme-ambiance-skip.json"
 EVENTS = ("popupOpen", "popupClose", "notification", "lock", "unlock", "windowOpen", "windowClose", "workspace",
-          "launcherOpen", "launcherClose", "screenshot")
+          "launcherOpen", "launcherClose", "screenshot", "agentDone")
 UA = "Mozilla/5.0 (X11; Linux x86_64) quickshell-themes"
 PLAYLIST = DATA / "playlist" / "index.json"
 PLAYLIST_CONFIG = Path(os.environ.get("XDG_CONFIG_HOME") or Path.home() / ".config") / "ambiance-playlist" / "config.json"
