@@ -160,18 +160,37 @@ Singleton {
         root.previousDiskStats = stats;
     }
 
+    readonly property real tempSmoothing: 0.15
+
+    function smooth(previous, v) {
+        if (isNaN(v))
+            return NaN;
+        return isNaN(previous) ? v : previous + root.tempSmoothing * (v - previous);
+    }
+
     function updateSensors() {
-        root.cpuTemp = sensorValue(fileCpuTemp, 1000);
         root.diskTemp = sensorValue(fileDiskTemp, 1000);
         root.cpuFan = sensorValue(fileCpuFan, 1);
         root.gpuFan = sensorValue(fileGpuFan, 1);
+    }
+
+    function updateCpuTemps() {
+        root.cpuTemp = root.smooth(root.cpuTemp, sensorValue(fileCpuTemp, 1000));
         let hottest = NaN;
         for (let i = 0; i < coreViews.count; i++) {
             const v = sensorValue(coreViews.objectAt(i), 1000);
             if (!isNaN(v) && (isNaN(hottest) || v > hottest))
                 hottest = v;
         }
-        root.cpuHottestCore = hottest;
+        root.cpuHottestCore = root.smooth(root.cpuHottestCore, hottest);
+    }
+
+    Timer {
+        interval: 1000
+        running: true
+        repeat: true
+        triggeredOnStart: true
+        onTriggered: root.updateCpuTemps()
     }
 
     Process {
