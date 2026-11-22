@@ -69,6 +69,20 @@ local mediaNextCommand =
 "playerctl next || playerctl position bc <<< \"100 * $(playerctl metadata mpris:length) / 1000000 / 100\""
 hl.bind("SUPER + ALT + Right", hl.dsp.exec_cmd(mediaNextCommand), { description = "Media: Next track" })
 hl.bind("SUPER + ALT + Left", hl.dsp.exec_cmd("playerctl previous"), { description = "Media: Previous track" })
+
+local function media_or_ide(key, cmd)
+    return function()
+        local w = hl.get_active_window()
+        if w and w.class and w.class:find("^jetbrains%-") then
+            hl.dispatch(hl.dsp.send_shortcut({ mods = "", key = key, window = "address:" .. w.address }))
+        else
+            hl.exec_cmd(cmd)
+        end
+    end
+end
+hl.bind("F7", media_or_ide("F7", "playerctl previous"), { description = "Media: Previous track (F7 stays F7 in JetBrains IDEs)" })
+hl.bind("F8", media_or_ide("F8", "playerctl play-pause"), { description = "Media: Play/pause (F8 stays F8 in JetBrains IDEs)" })
+hl.bind("F9", media_or_ide("F9", mediaNextCommand), { description = "Media: Next track (F9 stays F9 in JetBrains IDEs)" })
 hl.bind("Print", hl.dsp.exec_cmd("grim -g \"$(slurp)\" - | wl-copy"),
     { description = "Utilities: Screenshot region to clipboard" })
 
