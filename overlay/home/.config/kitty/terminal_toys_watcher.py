@@ -208,7 +208,7 @@ def on_load(boss, data):
             getattr(window.watchers, name).append(globals()[name])
         on_resize(boss, window, {})
         if window.last_cmd_output_start_time:
-            entries[window.id]['state'] = 'running'
+            entries[window.id].update(state='running', changed=time.monotonic())
     refresh(time.monotonic())
     add_timer(lambda timer: tick(boss), .1, True)
 
