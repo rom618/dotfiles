@@ -18,3 +18,6 @@ hl.on("window.move_to_workspace", function(_, ws)
     end, { timeout = 50, type = "oneshot" })
 end)
 -- share:end
+-- share:begin bar-themes
+hl.layer_rule({ match = { namespace = "quickshell:themeDecor" }, blur = false })
+-- share:end
