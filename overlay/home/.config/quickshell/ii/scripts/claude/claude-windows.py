@@ -185,7 +185,10 @@ def running_subagents(session_id, pid):
         marks = [f for f in (SUBAGENTS_DIR / session_id).iterdir() if f.stat().st_mtime >= now - SUBAGENT_MAX_AGE]
     except OSError:
         marks = []
-    ended = {f.name.removesuffix(".done") for f in marks if f.name.endswith(".done")}
+    done_at = {f.name.removesuffix(".done"): f.stat().st_mtime for f in marks if f.name.endswith(".done")}
+    # Un sous-agent relancé (SendMessage) a une marque de départ plus récente que son .done
+    ended = {f.name for f in marks if f.name in done_at and done_at[f.name] >= f.stat().st_mtime}
+    ended |= done_at.keys() - {f.name for f in marks}
     alive, others = set(), set()
     for f in marks:
         if f.name.endswith(".done") or f.name in ended:

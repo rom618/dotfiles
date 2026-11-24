@@ -14,7 +14,7 @@ import Quickshell.Hyprland
 ButtonMouseArea {
     id: root
 
-    readonly property HyprlandMonitor monitor: Hyprland.monitorFor(root.QsWindow.window?.screen)
+    readonly property HyprlandMonitor monitor: Hyprland.monitors.values.find(m => m.name === root.QsWindow.window?.screen?.name) ?? null
     WorkspaceModel {
         id: wsModel
         monitor: root.monitor
